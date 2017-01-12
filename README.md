@@ -1,4 +1,4 @@
-# RingDecomposerLib
+# RingDecomposerLib 1.0
 
 The RingDecomposerLib is an ANSI-C library with a Python wrapper for
 calculation of Unique Ring Families (URFs) and other cycle bases
@@ -12,10 +12,26 @@ by Niek Andresen, Florian Flachsenberg and Matthias Rarey.
 
 The library is distributed under [BSD New] (https://opensource.org/licenses/BSD-3-Clause) license.
 
-*The source code of the RingDecomposerLib will be available soon.*
-
-For more information on Unique Ring Families, see:
+Please Cite:
 
 Kolodzik, A.; Urbaczek, S.; Rarey, M.
 Unique Ring Families: A Chemically Meaningful Description of Molecular Ring Topologies.
-J. Chem. Inf. Model., 2012, 52, pp 2013-2021
+J. Chem. Inf. Model., 2012, 52, pp 2013–2021
+
+Flachsenberg, F.; Andresen, N.; Rarey, M.
+RingDecomposerLib: An Open-Source implementation of Unique Ring Families and other Cycle Bases.
+SUBMITTED
+
+This package contains a C-library as well as an optional Python wrapper for the library.
+
+## Installation
+
+See [INSTALL](INSTALL) or the documentation for detailed installation instructions.
+
+## Documentation
+
+The documentation is available in HTML ([documentation/html/index.html](documentation/html/index.html))
+and PDF ([documentation/refman.pdf](documentation/refman.pdf)) format.
+
+We recommend the PDF format, if you want to read the documentation without
+checking out the repository (GitHub directly displays the PDF file).
