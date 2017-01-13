@@ -1,6 +1,8 @@
 # RingDecomposerLib 1.0
 
+[![Build Status](https://travis-ci.org/rareylab/RingDecomposerLib.svg?branch=master)](https://travis-ci.org/rareylab/RingDecomposerLib)
 [![Documentation Status](https://readthedocs.org/projects/ringdecomposerlib/badge/?version=latest)](http://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
+
 
 The RingDecomposerLib is an ANSI-C library with a Python wrapper for
 calculation of Unique Ring Families (URFs) and other cycle bases
