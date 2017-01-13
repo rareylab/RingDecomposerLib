@@ -30,9 +30,9 @@ This package contains a C-library as well as an optional Python wrapper for the 
 
 ## Installation
 
-See [INSTALL](INSTALL) or the documentation for detailed installation instructions.
+See [INSTALL](INSTALL) or the [documentation](http://ringdecomposerlib.readthedocs.io/en/latest/install.html) for detailed installation instructions.
 
 ## Documentation
 
-The documentation is available on [ReadTheDocs](http://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
-and as a PDF ([documentation/refman.pdf](documentation/refman.pdf)).
+The documentation is available on [ReadTheDocs](https://readthedocs.org/) as a [HTML](http://ringdecomposerlib.readthedocs.io/en/latest)
+and as a [PDF](http://ringdecomposerlib.readthedocs.io/en/latest/refman.pdf) document.

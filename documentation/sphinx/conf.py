@@ -284,4 +284,7 @@ texinfo_documents = [
 #texinfo_no_detailmenu = False
 
 import subprocess
-subprocess.call('cd ../.. ; doxygen documentation/doxygen.cfg', shell=True)
+import shutil
+subprocess.call('doxygen documentation/doxygen.cfg', shell=True, cwd='../../')
+subprocess.call('make', shell=True, cwd='../latex')
+shutil.copy('../latex/refman.pdf', '../html/')
