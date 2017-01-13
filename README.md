@@ -1,5 +1,7 @@
 # RingDecomposerLib 1.0
 
+[![Documentation Status](https://readthedocs.org/projects/ringdecomposerlib/badge/?version=latest)](http://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
+
 The RingDecomposerLib is an ANSI-C library with a Python wrapper for
 calculation of Unique Ring Families (URFs) and other cycle bases
 (Relevant Cycles (RC), Smallest Set of Smallest Rings (SSSR)).
@@ -30,8 +32,5 @@ See [INSTALL](INSTALL) or the documentation for detailed installation instructio
 
 ## Documentation
 
-The documentation is available in HTML ([documentation/html/index.html](documentation/html/index.html))
-and PDF ([documentation/refman.pdf](documentation/refman.pdf)) format.
-
-We recommend the PDF format, if you want to read the documentation without
-checking out the repository (GitHub directly displays the PDF file).
+The documentation is available on [ReadTheDocs](http://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
+and as a PDF ([documentation/refman.pdf](documentation/refman.pdf)).
