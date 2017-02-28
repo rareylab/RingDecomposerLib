@@ -10,12 +10,12 @@
  * Kolodzik, A.; Urbaczek, S.; Rarey, M.
  * Unique Ring Families: A Chemically Meaningful Description
  * of Molecular Ring Topologies.
- * J. Chem. Inf. Model., 2012, 52, pp 2013-2021
+ * J. Chem. Inf. Model., 2012, 52 (8), pp 2013-2021
  * 
  * Flachsenberg, F.; Andresen, N.; Rarey, M.
  * RingDecomposerLib: An Open-Source Implementation of
- * Unique Ring Families and other Cycle Bases.
- * SUBMITTED
+ * Unique Ring Families and Other Cycle Bases.
+ * J. Chem. Inf. Model., 2017, 57 (2), pp 122-126
  */
 
 #include "RDLcycleFams.h"
@@ -237,7 +237,7 @@ static int RDL_cycleFamsComp(const void *cf1, const void *cf2)
 RDL_cfURF *RDL_findCycleFams(RDL_graph *gra, RDL_sPathInfo *spi)
 {
   RDL_cfURF *rc = malloc(sizeof(*rc));
-  /*number of CFs is at most 2m²+vn (Vismara Lemma 3)*/
+  /*number of CFs is at most 2m^2+vn (Vismara Lemma 3)*/
 
   rc->alloced = 64;
   rc->fams = malloc(rc->alloced * sizeof(*rc->fams));
