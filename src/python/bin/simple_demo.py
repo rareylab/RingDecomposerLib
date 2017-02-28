@@ -9,12 +9,12 @@
 # Kolodzik, A.; Urbaczek, S.; Rarey, M.
 # Unique Ring Families: A Chemically Meaningful Description
 # of Molecular Ring Topologies.
-# J. Chem. Inf. Model., 2012, 52, pp 2013-2021
+# J. Chem. Inf. Model., 2012, 52 (8), pp 2013-2021
 # 
 # Flachsenberg, F.; Andresen, N.; Rarey, M.
 # RingDecomposerLib: An Open-Source Implementation of
-# Unique Ring Families and other Cycle Bases.
-# SUBMITTED
+# Unique Ring Families and Other Cycle Bases.
+# J. Chem. Inf. Model., 2017, 57 (2), pp 122-126
 
 ## @file simple_demo.py
 ## @brief This file containes simple demo for using
