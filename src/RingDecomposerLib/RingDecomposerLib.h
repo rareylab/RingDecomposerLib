@@ -30,6 +30,8 @@
 #if (defined( _WIN32 ) && defined( _MSC_VER ) )
     /* Win32 & MS VC ++ */
     #define RDL_API __declspec(dllexport)
+#elif __GNUC__ >= 4 || defined(__clang__)
+    #define RDL_API __attribute__((visibility("default")))
 #else
     #define RDL_API
 #endif
@@ -94,7 +96,7 @@ typedef enum RDL_ERROR_LEVEL {
 typedef void (*RDL_outputFunction) (RDL_ERROR_LEVEL level, const char* m, ...);
 
 /** @brief the output function for warnings and errors */
-extern RDL_outputFunction RDL_outputFunc;
+RDL_API extern RDL_outputFunction RDL_outputFunc;
 
 /**
  * @brief Set the output function for warning and error messages.
@@ -123,13 +125,13 @@ RDL_API
 void RDL_writeNothing(RDL_ERROR_LEVEL level, const char* fmt, ...);
 
 /** @brief Invalid result indicator */
-extern const unsigned RDL_INVALID_RESULT;
+RDL_API extern const unsigned RDL_INVALID_RESULT;
 /** @brief Duplicate edge indicator */
-extern const unsigned RDL_DUPLICATE_EDGE;
+RDL_API extern const unsigned RDL_DUPLICATE_EDGE;
 /** @brief No ringsystem indicator */
-extern const unsigned RDL_NO_RINGSYSTEM;
+RDL_API extern const unsigned RDL_NO_RINGSYSTEM;
 /** @brief Invalid number of RCs */
-extern const double RDL_INVALID_RC_COUNT;
+RDL_API extern const double RDL_INVALID_RC_COUNT;
 
 /**
  * @brief Initializes a new \ref RDL_graph
