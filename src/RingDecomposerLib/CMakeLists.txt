@@ -15,7 +15,9 @@ function(build_library LIBRARY_NAME SPECIFIER)
               RDLbitset.c)
   set_property(TARGET "${LIBRARY_NAME}" PROPERTY C_STANDARD 90)
   set_target_properties("${LIBRARY_NAME}" PROPERTIES POSITION_INDEPENDENT_CODE True)
-  target_link_libraries("${LIBRARY_NAME}" m)
+  if(NOT WIN32)
+    target_link_libraries("${LIBRARY_NAME}" m)
+  endif()
   install(TARGETS ${LIBRARY_NAME}
           ARCHIVE DESTINATION lib
           LIBRARY DESTINATION lib
