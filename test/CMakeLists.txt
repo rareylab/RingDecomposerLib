@@ -5,8 +5,10 @@ foreach(filename ${files})
              COMMAND "${STATIC_TEST}" "validate" "${filename}" "200")
 endforeach()
 
-add_test(NAME "test_minimal_static" WORKING_DIRECTORY "${TEST_DIR}"
-         COMMAND "${STATIC_MINIMALEXAMPLE}")
+if(BUILD_MINIMAL_EXAMPLE)
+    add_test(NAME "test_minimal_static" WORKING_DIRECTORY "${TEST_DIR}"
+            COMMAND "${STATIC_MINIMALEXAMPLE}")
+endif()
 
 if (PYTHON AND BUILD_PYTHON_WRAPPER)
     foreach(filename ${files})
