@@ -28,4 +28,4 @@ build_library("${SHARED_LIBRARY}" "SHARED")
 build_library("${STATIC_LIBRARY}" "STATIC")
 
 install(FILES RingDecomposerLib.h
-        DESTINATION include/RingDecomposerLib)
+        DESTINATION RingDecomposerLib)
