@@ -28,6 +28,4 @@ build_library("${SHARED_LIBRARY}" "SHARED")
 build_library("${STATIC_LIBRARY}" "STATIC")
 
 install(FILES RingDecomposerLib.h
-RDLapsp.h    RDLcycleFams.h   RDLdimacs.h   RDLgraph.h    RDLinfo.h      RDLstack.h   RDLtesting.h
-RDLbitset.h  RDLdataStruct.h  RDLforward.h  RDLhandler.h  RDLrelation.h  RDLtarjan.h  RDLutility.h
         DESTINATION include/RingDecomposerLib)
