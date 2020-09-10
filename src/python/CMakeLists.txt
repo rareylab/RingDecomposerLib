@@ -12,7 +12,7 @@ if(PYTHON AND BUILD_PYTHON_WRAPPER)
 
   add_custom_command(
     OUTPUT "${OUTPUT}"
-    COMMAND "${PYTHON}" "${SETUP_PY}" build "$<TARGET_FILE:RingDecomposerLibStatic>"
+    COMMAND "${PYTHON}" "${SETUP_PY}" build "$<TARGET_FILE:RingDecomposerLib>"
     COMMAND ${CMAKE_COMMAND} -E touch "${OUTPUT}"
     DEPENDS ${DEPS}
   )
@@ -21,6 +21,6 @@ if(PYTHON AND BUILD_PYTHON_WRAPPER)
 
   add_custom_command(
     TARGET PYTHON_BUILD_TARGET POST_BUILD
-    COMMAND "${PYTHON}" "${SETUP_PY}" install ${PYTHON_FLAGS} "$<TARGET_FILE:RingDecomposerLibStatic>"
+    COMMAND "${PYTHON}" "${SETUP_PY}" install ${PYTHON_FLAGS} "$<TARGET_FILE:RingDecomposerLib>"
   )
 endif()

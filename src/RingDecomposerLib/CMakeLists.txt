@@ -21,6 +21,7 @@ if(NOT WIN32)
 endif()
 install(
   TARGETS RingDecomposerLib
+  EXPORT RingDecomposerLibTargets
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin

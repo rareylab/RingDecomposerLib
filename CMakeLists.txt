@@ -73,14 +73,6 @@ configure_package_config_file(
 )
 
 install(
-  TARGETS RingDecomposerLib
-  EXPORT RingDecomposerLibTargets
-  ARCHIVE DESTINATION lib
-  LIBRARY DESTINATION lib
-  RUNTIME DESTINATION bin
-)
-
-install(
   FILES
   "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfigVersion.cmake"
   "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfig.cmake"
