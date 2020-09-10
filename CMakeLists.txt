@@ -3,6 +3,8 @@ project(RingDecomposerLib VERSION 1.1.3)
 
 enable_testing()
 
+option(BUILD_SHARED_LIBS "Build RingDecomposerLib as a shared library" OFF)
+
 # external options -- build example
 option(BUILD_MINIMAL_EXAMPLE "Build minimal example" OFF)
 
