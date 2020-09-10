@@ -2,7 +2,7 @@ file(GLOB files "${TEST_DIR}/*.dimacs")
 foreach(filename ${files})
     get_filename_component(tname "${filename}" NAME_WE)
     add_test(NAME "test_${tname}" WORKING_DIRECTORY "${TEST_DIR}"
-             COMMAND "${STATIC_TEST}" "validate" "${filename}" "200")
+             COMMAND Test "validate" "${filename}" "200")
 endforeach()
 
 if(BUILD_MINIMAL_EXAMPLE)
