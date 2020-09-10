@@ -1,4 +1,4 @@
-# RingDecomposerLib 1.0
+# RingDecomposerLib
 
 [![Build Status](https://travis-ci.org/rareylab/RingDecomposerLib.svg?branch=master)](https://travis-ci.org/rareylab/RingDecomposerLib)
 [![Documentation Status](https://readthedocs.org/projects/ringdecomposerlib/badge/?version=latest)](http://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
