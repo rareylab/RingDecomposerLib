@@ -30,7 +30,7 @@ set(PYTHON_FLAGS "" CACHE STRING "Python flags")
 set(RDKIT_INCLUDE_DIR "" CACHE STRING "Rdkit include dir")
 
 # external options -- rdkit include directories
-set(RDKIT_LIB_DIR "" CACHE STRING "Rdkit librart dir")
+set(RDKIT_LIB_DIR "" CACHE STRING "Rdkit library dir")
 
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(LIB_SOURCE_DIR "${SOURCE_DIR}/RingDecomposerLib")
