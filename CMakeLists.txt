@@ -34,16 +34,10 @@ set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(LIB_SOURCE_DIR "${SOURCE_DIR}/RingDecomposerLib")
 set(PYTHON_SOURCE_DIR "${SOURCE_DIR}/python")
 
-set(SHARED_TEST "Test")
-set(STATIC_TEST "Test_static")
-
-set(SHARED_MINIMALEXAMPLE "MinimalExample")
-set(STATIC_MINIMALEXAMPLE "MinimalExample_static")
-
 set(PYTHON_TEST "${PYTHON_SOURCE_DIR}/test/test.py")
 set(TEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test")
 
-SET(CMAKE_INSTALL_RPATH "\$ORIGIN/lib")
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/lib")
 
 include_directories(${LIB_SOURCE_DIR})
 add_subdirectory("${LIB_SOURCE_DIR}")
@@ -88,8 +82,8 @@ install(
 
 install(
   FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfigVersion.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfig.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfig.cmake"
   DESTINATION "lib/cmake/RingDecomposerLib"
 )
 

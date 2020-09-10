@@ -1,4 +1,5 @@
-add_library(RingDecomposerLib
+add_library(
+  RingDecomposerLib
   RDLutility.c
   RDLhandler.c
   RDLrelation.c
@@ -11,7 +12,8 @@ add_library(RingDecomposerLib
   RDLtesting.c
   RDLtarjan.c
   RDLdimacs.c
-  RDLbitset.c)
+  RDLbitset.c
+)
 set_property(TARGET RingDecomposerLib PROPERTY C_STANDARD 90)
 set_target_properties(RingDecomposerLib PROPERTIES POSITION_INDEPENDENT_CODE ON)
 if(NOT WIN32)
