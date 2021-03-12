@@ -9,12 +9,12 @@ calculation of Unique Ring Families (URFs) and other cycle bases
 (Relevant Cycles (RC), Smallest Set of Smallest Rings (SSSR)).
 
 It has been developed at the
-[University of Hamburg] (https://www.uni-hamburg.de/),
-[ZBH - Center for Bioinformatics] (http://www.zbh.uni-hamburg.de),
-[Research Group for Computational Molecular Design] (http://www.zbh.uni-hamburg.de/amd)
+[Universität Hamburg](https://www.uni-hamburg.de/),
+[ZBH - Center for Bioinformatics](http://www.zbh.uni-hamburg.de),
+[Research Group for Computational Molecular Design](http://www.zbh.uni-hamburg.de/amd)
 by Niek Andresen, Florian Flachsenberg and Matthias Rarey.
 
-The library is distributed under [BSD New] (https://opensource.org/licenses/BSD-3-Clause) license.
+The library is distributed under the [BSD 3-Clause license](https://opensource.org/licenses/BSD-3-Clause) license.
 
 Please Cite:
 
