@@ -1,7 +1,9 @@
-cmake_minimum_required (VERSION 3.1)
-project (RingDecomposerLib VERSION 1.0)
+cmake_minimum_required(VERSION 3.1)
+project(RingDecomposerLib VERSION 1.1.3)
 
 enable_testing()
+
+option(BUILD_SHARED_LIBS "Build RingDecomposerLib as a shared library" OFF)
 
 # external options -- build example
 option(BUILD_MINIMAL_EXAMPLE "Build minimal example" OFF)
@@ -28,25 +30,16 @@ set(PYTHON_FLAGS "" CACHE STRING "Python flags")
 set(RDKIT_INCLUDE_DIR "" CACHE STRING "Rdkit include dir")
 
 # external options -- rdkit include directories
-set(RDKIT_LIB_DIR "" CACHE STRING "Rdkit librart dir")
+set(RDKIT_LIB_DIR "" CACHE STRING "Rdkit library dir")
 
 set(SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 set(LIB_SOURCE_DIR "${SOURCE_DIR}/RingDecomposerLib")
 set(PYTHON_SOURCE_DIR "${SOURCE_DIR}/python")
 
-set(SHARED_LIBRARY "RingDecomposerLib")
-set(STATIC_LIBRARY "RingDecomposerLibStatic")
-
-set(SHARED_TEST "Test")
-set(STATIC_TEST "Test_static")
-
-set(SHARED_MINIMALEXAMPLE "MinimalExample")
-set(STATIC_MINIMALEXAMPLE "MinimalExample_static")
-
 set(PYTHON_TEST "${PYTHON_SOURCE_DIR}/test/test.py")
 set(TEST_DIR "${CMAKE_CURRENT_SOURCE_DIR}/test")
 
-SET(CMAKE_INSTALL_RPATH "\$ORIGIN/lib")
+set(CMAKE_INSTALL_RPATH "\$ORIGIN/lib")
 
 include_directories(${LIB_SOURCE_DIR})
 add_subdirectory("${LIB_SOURCE_DIR}")
@@ -65,3 +58,36 @@ if(BUILD_PYTHON_WRAPPER)
 endif()
 
 add_subdirectory("${TEST_DIR}")
+
+target_include_directories(RingDecomposerLib PUBLIC $<INSTALL_INTERFACE:$<INSTALL_PREFIX>/include>)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfigVersion.cmake"
+  VERSION 1.1.3
+  COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(
+  "config.cmake.in"
+  "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfig.cmake"
+  INSTALL_DESTINATION "lib/cmake/RingDecomposerLib"
+)
+
+install(
+  FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfigVersion.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibConfig.cmake"
+  DESTINATION "lib/cmake/RingDecomposerLib"
+)
+
+export(
+  EXPORT RingDecomposerLibTargets
+  FILE "${CMAKE_CURRENT_BINARY_DIR}/RingDecomposerLibTargets.cmake"
+)
+
+install(
+  EXPORT RingDecomposerLibTargets
+  FILE "RingDecomposerLibTargets.cmake"
+  DESTINATION "lib/cmake/RingDecomposerLib"
+)
