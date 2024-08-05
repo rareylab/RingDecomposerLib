@@ -32,13 +32,13 @@ def read_dimacs(fname):
     edges = []
     for line in infile:
         if line[0] == 'p':
-            m = re.match("p edge (\d+) (\d+)", line)
+            m = re.match(r"p edge (\d+) (\d+)", line)
             assert(m)
             nof_nodes = int(m.group(1))
             nof_edges = int(m.group(2))
         elif line[0] == 'e':
             assert nof_nodes and nof_edges
-            m = re.match("e (\d+) (\d+)", line)
+            m = re.match(r"e (\d+) (\d+)", line)
             node1 = int(m.group(1))
             node2 = int(m.group(2))
             assert node1 >= 1 and node1 <= nof_nodes \
@@ -87,7 +87,7 @@ class RDLTestMeta(type):
             """
             new_g = []
             for e in g:
-                m = re.match("N(\d+),N(\d+)", e)
+                m = re.match(r"N(\d+),N(\d+)", e)
                 new_e = (int(m.group(1)), int(m.group(2)))
                 new_g.append(new_e)
             urf_g = py_rdl.Graph.from_edges(new_g)
