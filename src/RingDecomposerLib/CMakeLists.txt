@@ -13,7 +13,6 @@ function(build_library LIBRARY_NAME SPECIFIER)
               RDLtarjan.c
               RDLdimacs.c
               RDLbitset.c)
-  set_property(TARGET "${LIBRARY_NAME}" PROPERTY C_STANDARD 90)
   set_target_properties("${LIBRARY_NAME}" PROPERTIES POSITION_INDEPENDENT_CODE True)
   if(NOT WIN32)
     target_link_libraries("${LIBRARY_NAME}" m)
