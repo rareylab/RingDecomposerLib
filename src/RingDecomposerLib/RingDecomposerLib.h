@@ -41,6 +41,18 @@ extern "C" {
 #endif
 
 /**
+ * Allocation failures are reported through RDL_outputFunc at RDL_ERROR level
+ * and through the function's normal error return: NULL for pointer results,
+ * RDL_INVALID_RESULT for unsigned results, or RDL_INVALID_RC_COUNT for counts
+ * of relevant cycles. Array output arguments are set to NULL on failure;
+ * an empty successful result may also be NULL, so always check the return value.
+ * RDL_calculate takes ownership of its input graph only on success.
+ * Failed edge insertion leaves the logical graph unchanged and may be retried.
+ * After RDL_cycleIteratorNext returns NULL on allocation failure, the iterator
+ * is terminal and must be released using RDL_deleteCycleIterator.
+ */
+
+/**
  * @brief Structure representing a calculation result.
  *
  * This is the central structure, that is used to store

@@ -63,28 +63,29 @@ To see whether or not two RCFs are potentially URF-related we look at each RCF
   If this is the case, it becomes part of the basis B (part of 'B=')
   If we find that it is RDL_dependent on 'B<' and one of 'B=', the element of
   'B=' and C are marked as potentially URF-related.*/
-void RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo)
+int RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo)
 {
   unsigned i,j,k, index;
+  int success = 0;
 
   /* this array contains the basis cycles in row echelon form */
-  unsigned char **compressedBasisCycles;
+  unsigned char **compressedBasisCycles = NULL;
   unsigned maxBasisCyclesSize = graph->E - graph->V + 1;
   unsigned currentBasisCyclesSize = 0;
   unsigned currentBasisCyclesSmallerEnd = 0;
   unsigned oldBasisCyclesSize;
   unsigned compressedSize = 0;
 
-  unsigned char **compressedRelevantCycles;
+  unsigned char **compressedRelevantCycles = NULL;
   unsigned currentRelevantCyclesSize = 0;
   unsigned currentRelevantCyclesSmallerEnd = 0;
-  unsigned *relevantCyclesMap;
+  unsigned *relevantCyclesMap = NULL;
 
-  unsigned char *compressedCycleWithSmallerAdded;
-  unsigned char *compressedCycleWithEqualAdded;
-  unsigned char **compressedPrototypesForGaussian;
+  unsigned char *compressedCycleWithSmallerAdded = NULL;
+  unsigned char *compressedCycleWithEqualAdded = NULL;
+  unsigned char **compressedPrototypesForGaussian = NULL;
 
-  const unsigned char* empty_cycle;
+  const unsigned char* empty_cycle = NULL;
 
   if(RCFs->nofFams < 3) {
     /*if only 0, 1 or 2 families exist, they are all relevant and independent*/
@@ -96,20 +97,39 @@ void RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo
     for(i=0; i<RCFs->nofFams; ++i) {
       RCFs->fams[i]->mark = 1;
     }
-    return;
+    return 1;
   }
 
-  compressedBasisCycles = malloc(maxBasisCyclesSize * sizeof(*compressedBasisCycles));
-  compressedPrototypesForGaussian = malloc(RCFs->nofFams * sizeof(*compressedPrototypesForGaussian));
-  compressedRelevantCycles = malloc(RCFs->nofFams * sizeof(*compressedRelevantCycles));
-  relevantCyclesMap = malloc(RCFs->nofFams * sizeof(*relevantCyclesMap));
+  compressedBasisCycles = RDL_alloc(maxBasisCyclesSize, sizeof(*compressedBasisCycles));
+
+  if (!compressedBasisCycles) {
+    goto fail;
+  }
+  compressedPrototypesForGaussian = RDL_alloc(RCFs->nofFams, sizeof(*compressedPrototypesForGaussian));
+  if (!compressedPrototypesForGaussian) {
+    goto fail;
+  }
+  compressedRelevantCycles = RDL_alloc(RCFs->nofFams, sizeof(*compressedRelevantCycles));
+  if (!compressedRelevantCycles) {
+    goto fail;
+  }
+  relevantCyclesMap = RDL_alloc(RCFs->nofFams, sizeof(*relevantCyclesMap));
+  if (!relevantCyclesMap) {
+    goto fail;
+  }
 
   /* copy the prototypes for gaussian elimination */
   for (i = 0; i < RCFs->nofFams; ++i) {
     compressedSize = RDL_bitset_compressed(
         &(compressedPrototypesForGaussian[i]), RCFs->fams[i]->prototype, graph->E);
+    if (compressedSize == RDL_INVALID_RESULT) {
+      goto fail;
+    }
   }
-  empty_cycle = malloc(compressedSize * sizeof(*empty_cycle));
+  empty_cycle = RDL_alloc(compressedSize, sizeof(*empty_cycle));
+  if (!empty_cycle) {
+    goto fail;
+  }
   memset((unsigned char*)empty_cycle, 0, compressedSize * sizeof(*empty_cycle));
   /* printf("%d %d\n", compressedSize, graph->E); */
 
@@ -122,7 +142,10 @@ void RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo
 
       index = RDL_idxWeights(uInfo, i, j);
       /* copy current cycle */
-      compressedCycleWithSmallerAdded = malloc(compressedSize * sizeof(*compressedCycleWithSmallerAdded));
+      compressedCycleWithSmallerAdded = RDL_alloc(compressedSize, sizeof(*compressedCycleWithSmallerAdded));
+      if (!compressedCycleWithSmallerAdded) {
+        goto fail;
+      }
       memcpy(compressedCycleWithSmallerAdded, compressedPrototypesForGaussian[index],
           compressedSize * sizeof(*compressedCycleWithSmallerAdded));
 
@@ -163,7 +186,10 @@ void RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo
       uInfo->URFrel[i][j][j] = 1; /*URF-related to itself*/
 
       /* make a copy for adding the equal sized cycles */
-      compressedCycleWithEqualAdded = malloc(compressedSize * sizeof(*compressedCycleWithEqualAdded));
+      compressedCycleWithEqualAdded = RDL_alloc(compressedSize, sizeof(*compressedCycleWithEqualAdded));
+      if (!compressedCycleWithEqualAdded) {
+        goto fail;
+      }
       memcpy(compressedCycleWithEqualAdded, compressedCycleWithSmallerAdded,
           compressedSize * sizeof(*compressedCycleWithSmallerAdded));
 
@@ -243,6 +269,8 @@ void RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo
     }
   }
 
+  success = 1;
+fail:
   for (i = 0; i < currentBasisCyclesSize; ++i) {
     free(compressedBasisCycles[i]);
   }
@@ -255,20 +283,26 @@ void RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo
   free(relevantCyclesMap);
 
   for (i = 0; i < RCFs->nofFams; ++i) {
-    free(compressedPrototypesForGaussian[i]);
+    if (compressedPrototypesForGaussian) {
+      free(compressedPrototypesForGaussian[i]);
+    }
   }
   free(compressedPrototypesForGaussian);
   free((void*)empty_cycle);
+  return success;
 }
 
 /** finds all edges in the RCF and stores the result in the array edges.*/
-void RDL_findEdges(char *edges, RDL_cfam *RCF, RDL_graph *gra, RDL_sPathInfo *spi)
+int RDL_findEdges(char *edges, RDL_cfam *RCF, RDL_graph *gra, RDL_sPathInfo *spi)
 {
   char* visited;
-  visited = malloc(gra->E * sizeof(*visited));
-  memset(visited, 0, gra->E * sizeof(*visited));
+  visited = RDL_alloc(gra->V, sizeof(*visited));
+  if (!visited) {
+    goto fail;
+  }
+  memset(visited, 0, gra->V * sizeof(*visited));
   RDL_giveEdges(RCF->r, RCF->p, edges, gra, spi, visited);
-  memset(visited, 0, gra->E * sizeof(*visited));
+  memset(visited, 0, gra->V * sizeof(*visited));
   RDL_giveEdges(RCF->r, RCF->q, edges, gra, spi, visited);
   /* we need to add the edges */
   if(RCF->x < UINT_MAX) /*even family*/
@@ -281,26 +315,39 @@ void RDL_findEdges(char *edges, RDL_cfam *RCF, RDL_graph *gra, RDL_sPathInfo *sp
     edges[RDL_edgeId(gra, RCF->p, RCF->q)] = 1;
   }
   free(visited);
+  return 1;
+fail:
+  return 0;
 }
 
 /** Checks if the RCFs with indices idx1 and idx2 share at least one edge.
 returns 1 if yes and 0 otherwise. */
-char RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *graph,
+int RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *graph,
                     RDL_sPathInfo *spi)
 {
-  char *edges1;
-  char *edges2; /*arrays of {0,1}^m that can store a set of edges with entries
+  char *edges1 = NULL;
+  char *edges2 = NULL; /*arrays of {0,1}^m that can store a set of edges with entries
   being 1 if the edge is contained and 0 otherwise*/
   unsigned i;
   char result = 0;
-  edges1 = malloc(graph->E * sizeof(*edges1));
-  edges2 = malloc(graph->E * sizeof(*edges2));
+  edges1 = RDL_alloc(graph->E, sizeof(*edges1));
+  if (!edges1) {
+    goto fail;
+  }
+  edges2 = RDL_alloc(graph->E, sizeof(*edges2));
+  if (!edges2) {
+    goto fail;
+  }
 
   memset(edges1, 0, graph->E * sizeof(*edges1));
   memset(edges2, 0, graph->E * sizeof(*edges2));
 
-  RDL_findEdges(edges1, RCFs->fams[idx1], graph, spi);
-  RDL_findEdges(edges2, RCFs->fams[idx2], graph, spi);
+  if (!RDL_findEdges(edges1, RCFs->fams[idx1], graph, spi)) {
+    goto fail;
+  }
+  if (!RDL_findEdges(edges2, RCFs->fams[idx2], graph, spi)) {
+    goto fail;
+  }
 
   for(i=0; i<graph->E; ++i)
   {
@@ -313,52 +360,58 @@ char RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *gr
   free(edges1);
   free(edges2);
   return result;
+fail:
+  free(edges1); free(edges2);
+  return -1;
 }
 
-static void make_edge_list(
-    unsigned** edge_list,
-    unsigned* edge_list_size,
-    char* edges, RDL_graph *graph,
-    RDL_cfam* rcf, RDL_sPathInfo* spi)
+static int make_edge_list(unsigned **edge_list, unsigned *edge_list_size,
+    char *edges, RDL_graph *graph, RDL_cfam *rcf, RDL_sPathInfo *spi)
 {
-  unsigned alloced, i;
-
+  unsigned i;
   memset(edges, 0, graph->E * sizeof(*edges));
-  RDL_findEdges(edges, rcf, graph, spi);
-
-  alloced = 64;
-  *edge_list = malloc(alloced * sizeof(**edge_list));
-
+  if (!RDL_findEdges(edges, rcf, graph, spi)) {
+    return 0;
+  }
+  *edge_list = RDL_alloc(graph->E, sizeof(**edge_list));
+  if (!*edge_list) {
+    return 0;
+  }
   for (i = 0; i < graph->E; ++i) {
     if (edges[i]) {
-      if (*edge_list_size == alloced) {
-        alloced *= 2;
-        *edge_list = realloc(*edge_list, alloced * sizeof(**edge_list));
-      }
-      (*edge_list)[*edge_list_size] = i;
-      ++(*edge_list_size);
+      (*edge_list)[(*edge_list_size)++] = i;
     }
   }
-  *edge_list = realloc(*edge_list, *edge_list_size * sizeof(**edge_list));
+  return 1;
 }
 
 /** checks the previously 'marked as potentially URF-related' RCFs for edges
 that they have in common which proves that they are URF-related. */
-void RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sPathInfo* spi)
+int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sPathInfo* spi)
 {
-  unsigned i,j,k,shared, list_idx1, list_idx2;
+  unsigned i=0,j,k,shared, list_idx1, list_idx2;
   char *edges; /*arrays of {0,1}^m that can store a set of edges with entries
   being 1 if the edge is contained and 0 otherwise*/
 
-  unsigned **edge_list;
-  unsigned *edge_list_size;
+  unsigned **edge_list = NULL;
+  unsigned *edge_list_size = NULL;
 
-  edges = malloc(graph->E * sizeof(*edges));
+  edges = RDL_alloc(graph->E, sizeof(*edges));
+
+  if (!edges) {
+    goto fail;
+  }
 
   for(i=0; i<uInfo->nofWeights; ++i) /*go through all matrices*/
   {
-    edge_list = malloc(uInfo->nofProtos[i] * sizeof(*edge_list));
-    edge_list_size = malloc(uInfo->nofProtos[i] * sizeof(*edge_list_size));
+    edge_list = RDL_alloc(uInfo->nofProtos[i], sizeof(*edge_list));
+    if (!edge_list) {
+      goto fail;
+    }
+    edge_list_size = RDL_alloc(uInfo->nofProtos[i], sizeof(*edge_list_size));
+    if (!edge_list_size) {
+      goto fail;
+    }
     for(j=0; j<uInfo->nofProtos[i]; ++j) {
       edge_list[j] = NULL;
       edge_list_size[j] = 0;
@@ -372,12 +425,16 @@ void RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_s
         {
           /* calculate the edge lists only if necessary */
           if (edge_list[j] == NULL) {
-            make_edge_list(&edge_list[j], &edge_list_size[j], edges,
-                graph, RCFs->fams[RDL_idxWeights(uInfo,i,j)], spi);
+            if (!make_edge_list(&edge_list[j], &edge_list_size[j], edges, graph,
+                                RCFs->fams[RDL_idxWeights(uInfo, i, j)], spi)) {
+              goto fail;
+            }
           }
           if (edge_list[k] == NULL) {
-            make_edge_list(&edge_list[k], &edge_list_size[k], edges,
-                graph, RCFs->fams[RDL_idxWeights(uInfo,i,k)], spi);
+            if (!make_edge_list(&edge_list[k], &edge_list_size[k], edges, graph,
+                                RCFs->fams[RDL_idxWeights(uInfo, i, k)], spi)) {
+              goto fail;
+            }
           }
 
           shared = 0;
@@ -412,38 +469,62 @@ void RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_s
         free(edge_list[j]);
       }
     }
-    free(edge_list);
-    free(edge_list_size);
+    free(edge_list); edge_list = NULL;
+    free(edge_list_size); edge_list_size = NULL;
   }
 
   free(edges);
+  return 1;
+fail:
+  if (edge_list) {
+    for (j = 0; j < uInfo->nofProtos[i]; ++j) {
+      free(edge_list[j]);
+    }
+  }
+  free(edge_list); free(edge_list_size); free(edges);
+  return 0;
 }
 
 /** Takes the matrices in "URFrel" which contain the URF-pair-relation and finds
 the transitive closure - the URF-relation. */
-void RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
+int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
 {
-  unsigned i,j,k,l;
+  unsigned i=0,j,k,l;
   RDL_stack* dfs_stack;
   char* visited;
   unsigned cc_id;
-  unsigned **cc;
-  unsigned *cc_size;
+  unsigned **cc = NULL;
+  unsigned *cc_size = NULL;
   unsigned u, v;
-  unsigned *elements;
+  unsigned *elements = NULL;
   unsigned next_free_element;
   unsigned *curr_elem;
 
   dfs_stack = RDL_stack_new();
+  if (!dfs_stack) {
+    return 0;
+  }
 
   for(i = 0; i < uInfo->nofWeights; ++i) {
-    visited = malloc(uInfo->nofProtos[i] * sizeof(*visited));
+    visited = RDL_alloc(uInfo->nofProtos[i], sizeof(*visited));
+    if (!visited) {
+      goto fail;
+    }
     memset(visited, 0, uInfo->nofProtos[i] * sizeof(*visited));
 
     cc_id = 0;
-    cc = malloc(uInfo->nofProtos[i] * sizeof(*cc));
-    cc_size = malloc(uInfo->nofProtos[i] * sizeof(*cc_size));
-    elements = malloc(uInfo->nofProtos[i] * sizeof(*elements));
+    cc = RDL_alloc(uInfo->nofProtos[i], sizeof(*cc));
+    if (!cc) {
+      goto fail;
+    }
+    cc_size = RDL_alloc(uInfo->nofProtos[i], sizeof(*cc_size));
+    if (!cc_size) {
+      goto fail;
+    }
+    elements = RDL_alloc(uInfo->nofProtos[i], sizeof(*elements));
+    if (!elements) {
+      goto fail;
+    }
     next_free_element = 0;
 
     /*
@@ -452,11 +533,16 @@ void RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
      */
     for(j = 0; j < uInfo->nofProtos[i]; ++j) {
       if (!visited[j]) {
-        cc[cc_id] = malloc(uInfo->nofProtos[i] * sizeof(**cc));
+        cc[cc_id] = RDL_alloc(uInfo->nofProtos[i], sizeof(**cc));
+        if (!cc[cc_id]) {
+          goto fail;
+        }
         cc_size[cc_id] = 0;
 
         elements[next_free_element] = j;
-        RDL_stack_push(dfs_stack, &(elements[next_free_element]));
+        if (!RDL_stack_push(dfs_stack, &(elements[next_free_element]))) {
+          goto fail;
+        }
         ++next_free_element;
         visited[j] = 1;
         while (!RDL_stack_empty(dfs_stack)) {
@@ -472,7 +558,9 @@ void RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
             if (!visited[l] && uInfo->URFrel[i][k][l]) {
               visited[l] = 1;
               elements[next_free_element] = l;
-              RDL_stack_push(dfs_stack, &(elements[next_free_element]));
+              if (!RDL_stack_push(dfs_stack, &(elements[next_free_element]))) {
+                goto fail;
+              }
               ++next_free_element;
             }
           }
@@ -497,20 +585,30 @@ void RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
     for(j = 0; j < cc_id; ++j) {
       free(cc[j]);
     }
-    free(cc);
-    free(cc_size);
-    free(visited);
-    free(elements);
+    free(cc); cc = NULL;
+    free(cc_size); cc_size = NULL;
+    free(visited); visited = NULL;
+    free(elements); elements = NULL;
   }
 
   RDL_stack_delete(dfs_stack);
+  return 1;
+fail:
+  if (cc) {
+    for (j = 0; j < uInfo->nofProtos[i]; ++j) {
+      free(cc[j]);
+    }
+  }
+  free(cc); free(cc_size); free(visited); free(elements);
+  RDL_stack_delete(dfs_stack);
+  return 0;
 }
 
-void RDL_findRelations(RDL_cfURF *RCFs, RDL_graph *graph,
+int RDL_findRelations(RDL_cfURF *RCFs, RDL_graph *graph,
     RDL_URFinfo *uInfo, RDL_sPathInfo* spi)
 {
-  RDL_checkDependencies(RCFs, graph, uInfo);
-  RDL_checkEdges(RCFs, graph, uInfo, spi);
-  RDL_findTransitiveClosure(uInfo);
+  return RDL_checkDependencies(RCFs, graph, uInfo) &&
+      RDL_checkEdges(RCFs, graph, uInfo, spi) &&
+      RDL_findTransitiveClosure(uInfo);
 }
 

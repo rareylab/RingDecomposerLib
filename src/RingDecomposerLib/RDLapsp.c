@@ -27,26 +27,35 @@
 #include "RDLgraph.h"
 #include "RDLutility.h"
 
-static void RDL_initializeSPathInfo(RDL_sPathInfo *info, RDL_graph *gra)
+static int RDL_initializeSPathInfo(RDL_sPathInfo *info, RDL_graph *gra)
 {
   unsigned i;
   info->pred = RDL_alloc2DUIntArray(gra->V, gra->V);
   info->dist = RDL_alloc2DUIntArray(gra->V, gra->V);
   info->reachable = RDL_alloc2DCharArray(gra->V, gra->V);
-  info->dPaths = malloc(gra->V * sizeof(*info->dPaths));
+  info->dPaths = RDL_alloc(gra->V, sizeof(*info->dPaths));
+  if (!info->pred || !info->dist || !info->reachable || !info->dPaths) {
+    return 0;
+  }
   for(i=0; i<gra->V; ++i)
   {
     info->dPaths[i] = RDL_initNewGraph_g(gra->V, 0);
+    if (!info->dPaths[i]) {
+      return 0;
+    }
   }
+  return 1;
 }
 
-static void RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
+static int RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
 {
   const unsigned INFINITY = UINT_MAX;
   unsigned i,j,w,adj,run;
   unsigned q_head, q_nextfree, q_size;
-  char *color = malloc(gra->V * sizeof(*color));
-  unsigned *queue = malloc(gra->V * sizeof(*queue));
+  char *color = RDL_alloc(gra->V, sizeof(*color));
+  unsigned *queue = RDL_alloc(gra->V, sizeof(*queue));
+
+  if (!color || !queue) { free(color); free(queue); return 0; }
 
   for(run=1; run<3; ++run) /*2 run throughs to get Vr correct*/
   {
@@ -82,34 +91,32 @@ static void RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
         {
           j=gra->adjList[w][adj][0];
           /*if j precedes i in order (only first run)*/
-          if(run==2 || ((gra->degree[j] == gra->degree[i]) && j<i) ||
-          gra->degree[j] < gra->degree[i])
-          if(color[j] == 'w') /*unvisited*/
-          {
-            if(run==2)
-            {/*if in the 2nd run a dist gets shorter*/
-              if(spi->dist[i][w]+1 < spi->dist[i][j])
-              {/*not element of Vr*/
-                spi->reachable[i][j] = 0;
-              }
-            }
-            if(run==1 || (spi->dist[i][w]+1 < spi->dist[i][j]))
-            {/*if 2nd run and dist stays the same, pred shouldn't
-            change to keep the shortest path along ordering*/
-              /*predecessor of j on a shortest path from i to j*/
-              spi->pred[i][j] = w;
-            }
-            if(spi->dist[i][j] > spi->dist[i][w]+1)
+          if (run == 2 || ((gra->degree[j] == gra->degree[i]) && j < i) ||
+              gra->degree[j] < gra->degree[i]) {
+            if (color[j] == 'w') /*unvisited*/
             {
-              spi->dist[i][j] = spi->dist[i][w] + 1;
-            }
-            color[j] = 'b';
-            queue[q_nextfree] = j; /*enqueue*/
-            ++q_nextfree; /*enqueue*/
-            ++q_size; /*enqueue*/
-            if(run==1)
-            {/*reachable should not change to 1 in the 2nd run*/
-              spi->reachable[i][j] = 1;
+              if (run == 2) { /*if in the 2nd run a dist gets shorter*/
+                if (spi->dist[i][w] + 1 < spi->dist[i][j]) { /*not element of Vr*/
+                  spi->reachable[i][j] = 0;
+                }
+              }
+              if (run == 1 ||
+                  (spi->dist[i][w] + 1 <
+                   spi->dist[i][j])) { /*if 2nd run and dist stays the same, pred shouldn't
+            change to keep the shortest path along ordering*/
+                /*predecessor of j on a shortest path from i to j*/
+                spi->pred[i][j] = w;
+              }
+              if (spi->dist[i][j] > spi->dist[i][w] + 1) {
+                spi->dist[i][j] = spi->dist[i][w] + 1;
+              }
+              color[j] = 'b';
+              queue[q_nextfree] = j; /*enqueue*/
+              ++q_nextfree;          /*enqueue*/
+              ++q_size;              /*enqueue*/
+              if (run == 1) {        /*reachable should not change to 1 in the 2nd run*/
+                spi->reachable[i][j] = 1;
+              }
             }
           }
         }
@@ -119,14 +126,20 @@ static void RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
 
   free(color);
   free(queue);
+  return 1;
 }
 
 RDL_sPathInfo *RDL_AllPairsShortestPaths(RDL_graph *gra)
 {
-  RDL_sPathInfo *info = malloc(sizeof(*info));
+  RDL_sPathInfo *info = RDL_alloc(1, sizeof(*info));
 
-  RDL_initializeSPathInfo(info, gra);
-  RDL_findpaths(info, gra);
+  if (!info) {
+    return NULL;
+  }
+  if (!RDL_initializeSPathInfo(info, gra) || !RDL_findpaths(info, gra)) {
+    RDL_deleteAPSP(info, gra->V);
+    return NULL;
+  }
 
   return info;
 }
@@ -134,10 +147,13 @@ RDL_sPathInfo *RDL_AllPairsShortestPaths(RDL_graph *gra)
 void RDL_deleteAPSP(RDL_sPathInfo *info, unsigned V)
 {
   unsigned i;
+  if (!info) {
+    return;
+  }
   RDL_delete2DUIntArray(info->pred, V);
   RDL_delete2DUIntArray(info->dist, V);
   RDL_delete2DCharArray(info->reachable, V);
-  for(i=0; i<V; ++i)
+  for(i=0; info->dPaths && i<V; ++i)
   {
     RDL_deleteGraph(info->dPaths[i]);
   }

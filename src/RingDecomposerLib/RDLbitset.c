@@ -22,6 +22,7 @@
 #include <stdlib.h>
 
 #include "RDLbitset.h"
+#include "RDLutility.h"
 
 /* add two compressed cycles inplace */
 void RDL_bitset_xor_inplace(unsigned char* dst, unsigned const char* src, unsigned size)
@@ -66,7 +67,10 @@ unsigned RDL_bitset_init(unsigned char** compressed, unsigned size)
     ++new_size;
   }
 
-  *compressed = malloc(new_size * sizeof(**compressed));
+  *compressed = RDL_alloc(new_size, sizeof(**compressed));
+  if (!*compressed) {
+    return RDL_INVALID_RESULT;
+  }
   memset(*compressed, 0, new_size * sizeof(**compressed));
 
   return new_size;
@@ -79,6 +83,9 @@ unsigned RDL_bitset_compressed(unsigned char** compressed, const char* edges, un
 
   new_size = RDL_bitset_init(compressed, size);
 
+  if (new_size == RDL_INVALID_RESULT) {
+    return new_size;
+  }
   for (i = 0; i < size; ++i) {
     if (edges[i]) {
       RDL_bitset_set(*compressed, i);

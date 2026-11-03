@@ -28,6 +28,8 @@ int RDL_bitset_empty(unsigned const char* cycle, unsigned const char* empty_cycl
 void RDL_bitset_set(unsigned char* cycle, unsigned pos);
 
 void RDL_swap_columns(unsigned char** rows, unsigned nof_rows, unsigned col1, unsigned col2);
+/* Both constructors return RDL_INVALID_RESULT and set *compressed to NULL
+ * on allocation failure. Otherwise they return the compressed byte count. */
 unsigned RDL_bitset_init(unsigned char** compressed, unsigned size);
 unsigned RDL_bitset_compressed(unsigned char** compressed, const char* edges, unsigned size);
 

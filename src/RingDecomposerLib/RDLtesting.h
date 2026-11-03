@@ -36,7 +36,7 @@ int RDL_timeout_stop_fun(const void* p_timeout);
 /*
  * validate the URFs of given ringsystem,
  * StopFunc specifies function to interrupt the process
- * return 0 if successful, 1 on difference, -1 on timeout
+ * return 0 if successful, 1 on difference, -1 on timeout, -2 on allocation failure
  */
 RDL_API
 int RDL_validateRingFamilies(const char** cycle_array,
@@ -59,6 +59,7 @@ int RDL_cmp_cycles(const void* vc1, const void* vc2);
 
 /*
  * validate that a basis is indeed a basis
+ * Returns 0 on success, 1 on difference, -1 on timeout, -2 on allocation failure.
  */
 RDL_API
 int RDL_validateBasis(const char** relevant_cycle_array,
