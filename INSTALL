@@ -18,7 +18,7 @@ Prerequisites
 -------------
 
 For the core library the build process needs
-[CMake] (https://cmake.org) (>= 3.1) and an ANSI-C compiler
+[CMake] (https://cmake.org) (>= 3.5) and an ANSI-C compiler
 (for example gcc, clang or MSVC).
 
 Installation Unix and macOS
