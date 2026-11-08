@@ -65,3 +65,5 @@ if(BUILD_PYTHON_WRAPPER)
 endif()
 
 add_subdirectory("${TEST_DIR}")
+
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/documentation")

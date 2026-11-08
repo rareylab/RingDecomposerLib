@@ -1,7 +1,7 @@
-# RingDecomposerLib 1.0
+# RingDecomposerLib
 
 [![CI](https://github.com/rareylab/RingDecomposerLib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/rareylab/RingDecomposerLib/actions/workflows/ci.yml)
-[![Documentation Status](https://readthedocs.org/projects/ringdecomposerlib/badge/?version=latest)](https://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
+[![Documentation](https://github.com/rareylab/RingDecomposerLib/actions/workflows/docs.yml/badge.svg?branch=master)](https://rareylab.github.io/RingDecomposerLib/)
 
 
 The RingDecomposerLib is an ANSI-C library with a Python wrapper for
@@ -30,9 +30,9 @@ This package contains a C-library as well as an optional Python wrapper for the 
 
 ## Installation
 
-See [INSTALL](INSTALL) or the [documentation](http://ringdecomposerlib.readthedocs.io/en/latest/install.html) for detailed installation instructions.
+See [INSTALL](INSTALL) or the [documentation](https://rareylab.github.io/RingDecomposerLib/install.html) for detailed installation instructions.
 
 ## Documentation
 
-The documentation is available on [ReadTheDocs](https://readthedocs.org/) as a [HTML](http://ringdecomposerlib.readthedocs.io/en/latest)
-and as a [PDF](http://ringdecomposerlib.readthedocs.io/en/latest/refman.pdf) document.
+The documentation is available on [GitHub Pages](https://pages.github.com/) as [HTML](https://rareylab.github.io/RingDecomposerLib/)
+and as a [PDF](https://rareylab.github.io/RingDecomposerLib/refman.pdf) document.

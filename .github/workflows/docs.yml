@@ -1,0 +1,56 @@
+name: Documentation
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Doxygen and LaTeX
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            doxygen make ghostscript \
+            texlive-latex-base texlive-latex-recommended texlive-latex-extra \
+            texlive-fonts-recommended texlive-font-utils texlive-plain-generic
+
+      - name: Run Doxygen
+        run: |
+          cmake -S . -B build
+          cmake --build build --target doc
+
+      - name: Build PDF reference manual
+        run: |
+          make -C build/documentation/latex
+          cp build/documentation/latex/refman.pdf build/documentation/html/
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/documentation/html
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
