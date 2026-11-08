@@ -1,6 +1,6 @@
 # RingDecomposerLib 1.0
 
-[![Build Status](https://travis-ci.org/rareylab/RingDecomposerLib.svg?branch=master)](https://travis-ci.org/rareylab/RingDecomposerLib)
+[![CI](https://github.com/rareylab/RingDecomposerLib/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/rareylab/RingDecomposerLib/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/ringdecomposerlib/badge/?version=latest)](https://ringdecomposerlib.readthedocs.io/en/latest/?badge=latest)
 
 

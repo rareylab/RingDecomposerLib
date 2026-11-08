@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+            cc: gcc
+          - os: ubuntu-latest
+            compiler: clang
+            cc: clang
+          - os: macos-latest
+            compiler: clang
+            cc: clang
+          - os: windows-latest
+            compiler: msvc
+            cc: ""
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure
+        shell: bash
+        env:
+          CC: ${{ matrix.cc }}
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_MINIMAL_EXAMPLE=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Test
+        working-directory: build
+        run: ctest -C Release --output-on-failure --parallel 4
