@@ -38,7 +38,7 @@ RDL_stack *RDL_stack_new(void)
   }
   stack->reserved = 32;
   stack->elements = RDL_alloc(stack->reserved, sizeof(*stack->elements));
-  if (!stack->elements) { free(stack); return NULL; }
+  if (!stack->elements) { RDL_free(stack); return NULL; }
   return stack;
 }
 
@@ -79,6 +79,6 @@ void RDL_stack_delete(RDL_stack *stack)
   if (!stack) {
     return;
   }
-  free(stack->elements);
-  free(stack);
+  RDL_free(stack->elements);
+  RDL_free(stack);
 }

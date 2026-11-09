@@ -24,6 +24,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef RDL_TEST_ALLOCATORS
+#include "tests/failure_alloc.h"
+#endif
 
 RDL_outputFunction RDL_outputFunc = RDL_writeNothing;
 
@@ -35,7 +38,11 @@ void *RDL_alloc(size_t count, size_t size)
     RDL_outputFunc(RDL_ERROR, "Allocation size overflow.\n");
     return NULL;
   }
+#ifdef RDL_TEST_ALLOCATORS
+  result = audit_calloc(count ? count : 1, size ? size : 1);
+#else
   result = calloc(count ? count : 1, size ? size : 1);
+#endif
   if (!result) {
     RDL_outputFunc(RDL_ERROR, "Memory allocation failed.\n");
   }
@@ -49,11 +56,24 @@ void *RDL_resize(void *ptr, size_t count, size_t size)
     RDL_outputFunc(RDL_ERROR, "Allocation size overflow.\n");
     return NULL;
   }
+#ifdef RDL_TEST_ALLOCATORS
+  result = audit_realloc(ptr, (count ? count : 1) * (size ? size : 1));
+#else
   result = realloc(ptr, (count ? count : 1) * (size ? size : 1));
+#endif
   if (!result) {
     RDL_outputFunc(RDL_ERROR, "Memory allocation failed.\n");
   }
   return result;
+}
+
+void RDL_free(void *ptr)
+{
+#ifdef RDL_TEST_ALLOCATORS
+  audit_free(ptr);
+#else
+  free(ptr);
+#endif
 }
 
 unsigned **RDL_alloc2DUIntArray(unsigned n, unsigned m)
@@ -68,9 +88,9 @@ unsigned **RDL_alloc2DUIntArray(unsigned n, unsigned m)
     arr[i] = RDL_alloc(m, sizeof(**arr));
     if (!arr[i]) {
       while (i) {
-        free(arr[--i]);
+        RDL_free(arr[--i]);
       }
-      free(arr);
+      RDL_free(arr);
       return NULL;
     }
   }
@@ -89,9 +109,9 @@ char **RDL_alloc2DCharArray(unsigned n, unsigned m)
     arr[i] = RDL_alloc(m, sizeof(**arr));
     if (!arr[i]) {
       while (i) {
-        free(arr[--i]);
+        RDL_free(arr[--i]);
       }
-      free(arr);
+      RDL_free(arr);
       return NULL;
     }
   }
@@ -105,9 +125,9 @@ void RDL_delete2DUIntArray(unsigned **arr, unsigned n)
     return;
   }
   for (i = 0; i < n; ++i) {
-    free(arr[i]);
+    RDL_free(arr[i]);
   }
-  free(arr);
+  RDL_free(arr);
 }
 
 void RDL_delete2DCharArray(char **arr, unsigned n)
@@ -117,9 +137,9 @@ void RDL_delete2DCharArray(char **arr, unsigned n)
     return;
   }
   for (i = 0; i < n; ++i) {
-    free(arr[i]);
+    RDL_free(arr[i]);
   }
-  free(arr);
+  RDL_free(arr);
 }
 
 void RDL_print2DUIntArray(unsigned **arr, unsigned n, unsigned m)

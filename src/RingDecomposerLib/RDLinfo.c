@@ -73,15 +73,15 @@ void RDL_deleteURFInfo(RDL_URFinfo *uInfo)
   {
     RDL_delete2DCharArray(uInfo->URFrel[i], uInfo->nofProtos ? uInfo->nofProtos[i] : 0);
   }
-  free(uInfo->URFrel);
-  free(uInfo->nofProtos);
+  RDL_free(uInfo->URFrel);
+  RDL_free(uInfo->nofProtos);
   for(i=0; uInfo->URFs && i<uInfo->nofURFs; ++i)
   {
-    free(uInfo->URFs[i]);
+    RDL_free(uInfo->URFs[i]);
   }
-  free(uInfo->URFs);
-  free(uInfo->nofCFsPerURF);
-  free(uInfo);
+  RDL_free(uInfo->URFs);
+  RDL_free(uInfo->nofCFsPerURF);
+  RDL_free(uInfo);
 }
 
 static char **RDL_allocProtoFlags(RDL_URFinfo *info)
@@ -145,9 +145,9 @@ unsigned RDL_countURFs(RDL_URFinfo *uInfo)
 
   for(i=0; i<uInfo->nofWeights; ++i)
   {
-    free(alreadyInURF[i]);
+    RDL_free(alreadyInURF[i]);
   }
-  free(alreadyInURF);
+  RDL_free(alreadyInURF);
   return URFRelCount;
 }
 
@@ -239,9 +239,9 @@ int RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
 
   for(i=0; i<uInfo->nofWeights; ++i)
   {
-    free(alreadyInURF[i]);
+    RDL_free(alreadyInURF[i]);
   }
-  free(alreadyInURF);
+  RDL_free(alreadyInURF);
   return 1;
 fail:
   RDL_delete2DCharArray(alreadyInURF, uInfo->nofWeights);

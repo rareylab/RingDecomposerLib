@@ -101,9 +101,9 @@ double RDL_countPaths(unsigned a, unsigned b,
     RDL_outputFunc(RDL_ERROR, "invalid topological sort!");
     /* should never happen */
     assert(0);
-    free(nof_paths);
-    free(indegree);
-    free(empty_set);
+    RDL_free(nof_paths);
+    RDL_free(indegree);
+    RDL_free(empty_set);
     return DBL_MAX;
   }
 
@@ -124,13 +124,13 @@ double RDL_countPaths(unsigned a, unsigned b,
 
   result = nof_paths[a];
 
-  free(nof_paths);
-  free(indegree);
-  free(empty_set);
+  RDL_free(nof_paths);
+  RDL_free(indegree);
+  RDL_free(empty_set);
 
   return result;
 fail:
-  free(nof_paths); free(indegree); free(empty_set);
+  RDL_free(nof_paths); RDL_free(indegree); RDL_free(empty_set);
   return RDL_INVALID_RC_COUNT;
 }
 
@@ -204,9 +204,9 @@ typedef struct RDL_lpStackElement {
 static void RDL_lpStackElement_delete(RDL_lpStackElement* element)
 {
   if (element->split_copy) {
-    free(element->split_copy);
+    RDL_free(element->split_copy);
   }
-  free(element);
+  RDL_free(element);
 }
 
 static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it);
@@ -266,7 +266,7 @@ static RDL_pathIterator* RDL_listPaths(unsigned r, unsigned p,
 
   return it;
 fail:
-  free(new_element);
+  RDL_free(new_element);
   RDL_deletePathIterator(it);
   return NULL;
 }
@@ -279,7 +279,7 @@ static void RDL_deletePathIterator(RDL_pathIterator *it)
     return;
   }
   if (it->compressed_path) {
-    free(it->compressed_path);
+    RDL_free(it->compressed_path);
   }
   /* stack can be non-empty if premature terminating iteration */
   while (it->stack && !RDL_stack_empty(it->stack)) {
@@ -288,7 +288,7 @@ static void RDL_deletePathIterator(RDL_pathIterator *it)
     RDL_stack_pop(it->stack);
   }
   RDL_stack_delete(it->stack);
-  free(it);
+  RDL_free(it);
 }
 
 /* move on to the next path */
@@ -377,7 +377,7 @@ static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it)
 
   return it;
 fail:
-  free(new_element);
+  RDL_free(new_element);
   it->end = 1;
   return NULL;
 }
@@ -511,7 +511,7 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
           else {
             number = it->data->bccGraphs->bcc_graphs[it->bcc_index]->E;
           }
-          free(it->compressed_cycle);
+          RDL_free(it->compressed_cycle);
           it->compressed_cycle = NULL;
           if (RDL_bitset_init(&it->compressed_cycle, number) == RDL_INVALID_RESULT) {
             goto fail;
@@ -648,10 +648,10 @@ void RDL_deleteCycleIterator(RDL_cycleIterator* it)
   }
 
   if (it->compressed_cycle) {
-    free(it->compressed_cycle);
+    RDL_free(it->compressed_cycle);
   }
 
-  free(it);
+  RDL_free(it);
 }
 
 /* initialize cycle iterator */

@@ -55,7 +55,7 @@ static int RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
   char *color = RDL_alloc(gra->V, sizeof(*color));
   unsigned *queue = RDL_alloc(gra->V, sizeof(*queue));
 
-  if (!color || !queue) { free(color); free(queue); return 0; }
+  if (!color || !queue) { RDL_free(color); RDL_free(queue); return 0; }
 
   for(run=1; run<3; ++run) /*2 run throughs to get Vr correct*/
   {
@@ -126,8 +126,8 @@ static int RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
     }
   }
 
-  free(color);
-  free(queue);
+  RDL_free(color);
+  RDL_free(queue);
   return 1;
 }
 
@@ -159,6 +159,6 @@ void RDL_deleteAPSP(RDL_sPathInfo *info, unsigned V)
   {
     RDL_deleteGraph(info->dPaths[i]);
   }
-  free(info->dPaths);
-  free(info);
+  RDL_free(info->dPaths);
+  RDL_free(info);
 }

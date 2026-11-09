@@ -137,7 +137,7 @@ static int RDL_addFamily(unsigned r, unsigned y, unsigned z, unsigned x,
     return 0;
   }
   family->prototype = RDL_findPrototype(r, y, z, x, gra, spi);
-  if (!family->prototype) { free(family); return 0; }
+  if (!family->prototype) { RDL_free(family); return 0; }
   family->r = r; family->p = y; family->q = z; family->x = x;
   family->weight = spi->dist[r][y] + spi->dist[r][z] + (x == UINT_MAX ? 1 : 2);
   rc->fams[rc->nofFams++] = family;
@@ -158,9 +158,9 @@ static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
   vertInRY = RDL_alloc(gra->V, sizeof(*vertInRY));
   vertInRZ = RDL_alloc(gra->V, sizeof(*vertInRZ));
   if (!evenCand || !vertInRY || !vertInRZ) {
-    free(evenCand);
-    free(vertInRY);
-    free(vertInRZ);
+    RDL_free(evenCand);
+    RDL_free(vertInRY);
+    RDL_free(vertInRZ);
     return 0;
   }
   for(rv = 0; rv < gra->V; ++rv) {
@@ -221,14 +221,14 @@ static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
     }
   }
 
-  free(evenCand);
-  free(vertInRY);
-  free(vertInRZ);
+  RDL_free(evenCand);
+  RDL_free(vertInRY);
+  RDL_free(vertInRZ);
   return 1;
 fail:
-  free(evenCand);
-  free(vertInRY);
-  free(vertInRZ);
+  RDL_free(evenCand);
+  RDL_free(vertInRY);
+  RDL_free(vertInRZ);
   return 0;
 }
 
@@ -273,10 +273,10 @@ void RDL_deleteCycleFams(RDL_cfURF *rc)
   }
   for(i=0; i<rc->nofFams; ++i)
   {
-    free(rc->fams[i]->prototype);
-    free(rc->fams[i]);
+    RDL_free(rc->fams[i]->prototype);
+    RDL_free(rc->fams[i]);
   }
-  free(rc->fams);
-  free(rc);
+  RDL_free(rc->fams);
+  RDL_free(rc);
 }
 

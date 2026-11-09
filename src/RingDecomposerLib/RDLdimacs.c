@@ -42,12 +42,12 @@ void RDL_dimacsGraph_delete(RDL_DimacsGraph* graph)
     RDL_deleteEdgeIdxArray(graph->sorted_cycles, graph->nof_cycles);
   }
   if (graph->edges) {
-    free(graph->edges);
+    RDL_free(graph->edges);
   }
   if (graph->name) {
-    free(graph->name);
+    RDL_free(graph->name);
   }
-  free(graph);
+  RDL_free(graph);
 }
 
 RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)

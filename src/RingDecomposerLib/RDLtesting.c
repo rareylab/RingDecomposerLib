@@ -122,9 +122,9 @@ static void RDL_freeValidationStack(RDL_stack *stack)
   while (!RDL_stack_empty(stack)) {
     element = RDL_stack_top(stack);
     if (element->owns_bonds) {
-      free((void *)element->current_bonds);
+      RDL_free((void *)element->current_bonds);
     }
-    free(element);
+    RDL_free(element);
     RDL_stack_pop(stack);
   }
   RDL_stack_delete(stack);
@@ -159,7 +159,7 @@ int RDL_check_property3(const char* start_bonds,
   top->current_bonds = start_bonds;
   top->stage = 0;
   top->owns_bonds = 0;
-  if (!RDL_stack_push(stack, top)) { free(top); top = NULL; goto fail; }
+  if (!RDL_stack_push(stack, top)) { RDL_free(top); top = NULL; goto fail; }
   top = NULL;
   new_bonds = NULL;
 
@@ -228,9 +228,9 @@ int RDL_check_property3(const char* start_bonds,
     /* looking at this ring for the third time or at an non existing ring, end recursion */
     else {
       if (top->owns_bonds) {
-        free((char*)top->current_bonds);
+        RDL_free((char*)top->current_bonds);
       }
-      free(top);
+      RDL_free(top);
       RDL_stack_pop(stack);
     }
     if (stop(NULL)) {
@@ -242,9 +242,9 @@ int RDL_check_property3(const char* start_bonds,
   while (!RDL_stack_empty(stack)) {
     top = RDL_stack_top(stack);
     if (top->owns_bonds) {
-      free((char*)top->current_bonds);
+      RDL_free((char*)top->current_bonds);
     }
-    free(top);
+    RDL_free(top);
     RDL_stack_pop(stack);
   }
 
@@ -252,12 +252,12 @@ int RDL_check_property3(const char* start_bonds,
 
   return family_related;
 fail:
-  free(new_bonds);
+  RDL_free(new_bonds);
   if (new_element) {
     if (new_element->owns_bonds) {
-      free((void *)new_element->current_bonds);
+      RDL_free((void *)new_element->current_bonds);
     }
-    free(new_element);
+    RDL_free(new_element);
   }
   RDL_freeValidationStack(stack);
   return -2;
@@ -380,16 +380,16 @@ char** RDL_calculate_pairwise_family(const char** cycle_array,
   }
 
   for (i = 0; i < nof_rings; ++i) {
-    free(ring_sets[i]);
+    RDL_free(ring_sets[i]);
   }
 
-  free(ring_sets);
-  free((void*)rings);
+  RDL_free(ring_sets);
+  RDL_free((void*)rings);
 
   return family_relation;
 fail:
-  free(family_relation_data); free(family_relation);
-  RDL_delete2DCharArray(ring_sets, nof_rings); free((void *)rings);
+  RDL_free(family_relation_data); RDL_free(family_relation);
+  RDL_delete2DCharArray(ring_sets, nof_rings); RDL_free((void *)rings);
   return NULL;
 }
 
@@ -402,7 +402,7 @@ int RDL_calculate_transitive_closure(char **graph, unsigned n)
   unsigned i, j, current, head, tail;
   unsigned *queue = RDL_alloc(n, sizeof(*queue));
   char *visited = RDL_alloc(n, sizeof(*visited));
-  if (!queue || !visited) { free(queue); free(visited); return 0; }
+  if (!queue || !visited) { RDL_free(queue); RDL_free(visited); return 0; }
   for (i = 0; i < n; ++i) {
     memset(visited, 0, n * sizeof(*visited));
     head = 0; tail = 0;
@@ -417,7 +417,7 @@ int RDL_calculate_transitive_closure(char **graph, unsigned n)
       }
     }
   }
-  free(queue); free(visited);
+  RDL_free(queue); RDL_free(visited);
   return 1;
 }
 
@@ -455,7 +455,7 @@ int RDL_validateRingFamilies(const char** cycle_array,
   else {
     /* calculate transitive closure of pairwise URF relation */
     if (!RDL_calculate_transitive_closure(family_relation, nof_rings)) {
-      free(*family_relation); free(family_relation); return -2;
+      RDL_free(*family_relation); RDL_free(family_relation); return -2;
     }
 
     /* compare URF relations */
@@ -475,8 +475,8 @@ int RDL_validateRingFamilies(const char** cycle_array,
     }
   }
 
-  free(*family_relation);
-  free(family_relation);
+  RDL_free(*family_relation);
+  RDL_free(family_relation);
 
   return return_value;
 }
@@ -830,7 +830,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getNodesForURF(data, VeryHighIndex, &family_nodes1)\n");
     result = 1;
   }
-  free(nodes);
+  RDL_free(nodes);
 
   result_num = RDL_getNodesForURF(NULL, 0, &nodes);
   if (result_num != RDL_INVALID_RESULT) {
@@ -838,7 +838,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getNodesForURF(NULL, 0, &family_nodes1)\n");
     result = 1;
   }
-  free(nodes);
+  RDL_free(nodes);
 
   /* test RDL_getEdgesForURF */
   result_num = RDL_getEdgesForURF(data, VeryHighIndex, &edges);
@@ -847,14 +847,14 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getEdgesForURF(data, VeryHighIndex, &family_edges1)\n");
     result = 1;
   }
-  free(edges);
+  RDL_free(edges);
 
   result_num = RDL_getEdgesForURF(NULL, 0, &edges);
   if (result_num != RDL_INVALID_RESULT) {
     fprintf(stderr,"failed to detect invalid result: RDL_getEdgesForURF(NULL, 0, &family_edges1)\n");
     result = 1;
   }
-  free(edges);
+  RDL_free(edges);
 
   /* test RDL_getNodesForRCF */
   result_num = RDL_getNodesForRCF(data, VeryHighIndex, &nodes);
@@ -863,7 +863,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getNodesForRCF(data, VeryHighIndex, &rcf_nodes1)\n");
     result = 1;
   }
-  free(nodes);
+  RDL_free(nodes);
 
   result_num = RDL_getNodesForRCF(NULL, 0, &nodes);
   if (result_num != RDL_INVALID_RESULT) {
@@ -871,7 +871,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getNodesForURF(NULL, 0, &family_nodes1)\n");
     result = 1;
   }
-  free(nodes);
+  RDL_free(nodes);
 
   /* test RDL_getEdgesForRCF */
   result_num = RDL_getEdgesForRCF(data, VeryHighIndex, &edges);
@@ -880,7 +880,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getEdgesForRCF(data, VeryHighIndex, &rcf_edges1)\n");
     result = 1;
   }
-  free(edges);
+  RDL_free(edges);
 
   result_num = RDL_getEdgesForRCF(NULL, 0, &edges);
   if (result_num != RDL_INVALID_RESULT) {
@@ -888,7 +888,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getEdgesForRCF(NULL, 0q, &rcf_edges1)\n");
     result = 1;
   }
-  free(edges);
+  RDL_free(edges);
 
   /* test RDL_getURFsContainingNode */
   result_num = RDL_getURFsContainingNode(data, VeryHighIndex, &families);
@@ -897,7 +897,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getURFsContainingNode(data, VeryHighIndex, &families_for_node2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   result_num = RDL_getURFsContainingNode(NULL, 0, &families);
   if (result_num != RDL_INVALID_RESULT) {
@@ -905,7 +905,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getURFsContainingNode(NULL, 0, &families_for_node2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   /* test RDL_getNofURFContainingNode */
   result_num = RDL_getNofURFContainingNode(data, VeryHighIndex);
@@ -929,7 +929,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getURFsContainingEdge(data, VeryHighIndex, VeryHighIndexPlus1, &families_for_edge2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   result_num = RDL_getURFsContainingEdge(data, 0, 0, &families);
   if (result_num != RDL_INVALID_RESULT) {
@@ -937,7 +937,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getURFsContainingEdge(data, 0, 0, &families_for_edge2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   result_num = RDL_getURFsContainingEdge(NULL, 0, 0, &families);
   if (result_num != RDL_INVALID_RESULT) {
@@ -945,7 +945,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getURFsContainingEdge(NULL, 0, 0, &families_for_edge2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   /* test RDL_getNofURFContainingEdge */
   result_num = RDL_getNofURFContainingEdge(data, VeryHighIndex, VeryHighIndexPlus1);
@@ -976,7 +976,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getRCFsContainingNode(data, VeryHighIndex, &families_for_node2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   result_num = RDL_getRCFsContainingNode(NULL, 0, &families);
   if (result_num != RDL_INVALID_RESULT) {
@@ -984,7 +984,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getRCFsContainingNode(NULL, 0, &families_for_node2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   /* test RDL_getNofRCFContainingNode */
   result_num = RDL_getNofRCFContainingNode(data, VeryHighIndex);
@@ -1008,7 +1008,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getRCFsContainingEdge(data, VeryHighIndex, VeryHighIndexPlus1, &families_for_edge2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   result_num = RDL_getRCFsContainingEdge(data, 0, 0, &families);
   if (result_num != RDL_INVALID_RESULT) {
@@ -1016,7 +1016,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getRCFsContainingEdge(data, 0, 0, &families_for_edge2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   result_num = RDL_getRCFsContainingEdge(NULL, 0, 0, &families);
   if (result_num != RDL_INVALID_RESULT) {
@@ -1024,7 +1024,7 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getRCFsContainingEdge(NULL, 0, 0, &families_for_edge2)\n");
     result = 1;
   }
-  free(families);
+  RDL_free(families);
 
   /* test RDL_getNofRCFContainingEdge */
   result_num = RDL_getNofRCFContainingEdge(data, VeryHighIndex, VeryHighIndexPlus1);
@@ -1087,14 +1087,14 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getNodesForRingsystem(data, VeryHighIndex, &family_nodes1)\n");
     result = 1;
   }
-  free(nodes);
+  RDL_free(nodes);
 
   if (RDL_getNodesForRingsystem(NULL, 0, &nodes) != RDL_INVALID_RESULT) {
     fprintf(stderr,
         "failed to detect invalid result: RDL_getNodesForRingsystem(NULL, 0, &family_nodes1)\n");
     result = 1;
   }
-  free(nodes);
+  RDL_free(nodes);
 
   /* test RDL_getEdgesForRingsystem */
   if (RDL_getEdgesForRingsystem(data, VeryHighIndex, &edges) != RDL_INVALID_RESULT) {
@@ -1102,14 +1102,14 @@ int RDL_checkInvalidConsistency(const RDL_data* data)
         "failed to detect invalid result: RDL_getEdgesForRingsystem(data, VeryHighIndex, &family_edges1)\n");
     result = 1;
   }
-  free(edges);
+  RDL_free(edges);
 
   if (RDL_getEdgesForRingsystem(NULL, 0, &edges) != RDL_INVALID_RESULT) {
     fprintf(stderr,
         "failed to detect invalid result: RDL_getEdgesForRingsystem(NULL, 0, &family_edges1)\n");
     result = 1;
   }
-  free(edges);
+  RDL_free(edges);
 
   /* test RDL_getRingsystemForEdge */
   if (RDL_getRingsystemForEdge(data, VeryHighIndex, VeryHighIndexPlus1) != RDL_INVALID_RESULT) {
@@ -1416,12 +1416,12 @@ int RDL_checkFamilyConsistency(const RDL_data* data,
       }
     }
 
-    free(family_edges1); family_edges1 = NULL;
-    free(family_nodes1); family_nodes1 = NULL;
+    RDL_free(family_edges1); family_edges1 = NULL;
+    RDL_free(family_nodes1); family_nodes1 = NULL;
   }
 
-  free(family_edges2); family_edges2 = NULL;
-  free(family_nodes2); family_nodes2 = NULL;
+  RDL_free(family_edges2); family_edges2 = NULL;
+  RDL_free(family_nodes2); family_nodes2 = NULL;
 
   if (total_rc != RDL_getNofRC(data)) {
     fprintf(stderr, "inconsistency in the number of RCs!\n");
@@ -1471,11 +1471,11 @@ int RDL_checkFamilyConsistency(const RDL_data* data,
       }
     }
 
-    free(families_for_node2); families_for_node2 = NULL;
-    free(families_for_node1[idx3]); families_for_node1[idx3] = NULL;
+    RDL_free(families_for_node2); families_for_node2 = NULL;
+    RDL_free(families_for_node1[idx3]); families_for_node1[idx3] = NULL;
   }
 
-  free(families_for_node1); families_for_node1 = NULL;
+  RDL_free(families_for_node1); families_for_node1 = NULL;
 
   /*
    * now verify the inverse direction for families
@@ -1525,22 +1525,22 @@ int RDL_checkFamilyConsistency(const RDL_data* data,
       }
     }
 
-    free(families_for_edge2); families_for_edge2 = NULL;
-    free(families_for_edge1[idx3]); families_for_edge1[idx3] = NULL;
+    RDL_free(families_for_edge2); families_for_edge2 = NULL;
+    RDL_free(families_for_edge1[idx3]); families_for_edge1[idx3] = NULL;
   }
 
-  free(families_for_edge1); families_for_edge1 = NULL;
-  free(all_edges); all_edges = NULL;
+  RDL_free(families_for_edge1); families_for_edge1 = NULL;
+  RDL_free(all_edges); all_edges = NULL;
 
   return result;
 fail:
-  free(family_edges1); free(all_edges); free(family_nodes1);
-  free(family_edges2); free(family_nodes2);
+  RDL_free(family_edges1); RDL_free(all_edges); RDL_free(family_nodes1);
+  RDL_free(family_edges2); RDL_free(family_nodes2);
   RDL_deleteCycles(cycle_array1, weight);
   RDL_delete2DCharArray(char_array1, weight);
   RDL_delete2DUIntArray(families_for_node1, nof_nodes);
   RDL_delete2DUIntArray(families_for_edge1, nof_edges);
-  free(families_for_node2); free(families_for_edge2);
+  RDL_free(families_for_node2); RDL_free(families_for_edge2);
   return 1;
 }
 
@@ -1634,9 +1634,9 @@ int RDL_checkRingsystemConsistency(const RDL_data* data, char graph_connected, u
       result = 1;
     }
 
-    free(rs_nodes); rs_nodes = NULL;
+    RDL_free(rs_nodes); rs_nodes = NULL;
 
-    free(rs_edges); rs_edges = NULL;
+    RDL_free(rs_edges); rs_edges = NULL;
   }
   for (idx1 = 0; idx1 < data->graph->E; ++idx1) {
     idx2 = RDL_getRingsystemForEdge(data,
@@ -1646,11 +1646,11 @@ int RDL_checkRingsystemConsistency(const RDL_data* data, char graph_connected, u
       result = 1;
     }
   }
-  free(rs_edge_mapping); rs_edge_mapping = NULL;
+  RDL_free(rs_edge_mapping); rs_edge_mapping = NULL;
 
   return result;
 fail:
-  free(rs_edge_mapping); free(rs_edges); free(rs_nodes);
+  RDL_free(rs_edge_mapping); RDL_free(rs_edges); RDL_free(rs_nodes);
   return 1;
 }
 
@@ -1920,13 +1920,13 @@ int RDL_validateBasis(const char** relevant_cycle_array,
   }
   top->current_ring_idx = 0;
   new_bonds = RDL_alloc((size_t)nof_bonds + 1, sizeof(*new_bonds));
-  if (!new_bonds) { free(top); goto fail; }
+  if (!new_bonds) { RDL_free(top); goto fail; }
   new_bonds[nof_bonds] = 2;
   top->current_bonds = new_bonds;
   top->stage = 0;
   top->owns_bonds = 1;
   top->curr_bcc = UINT_MAX;
-  if (!RDL_stack_push(stack, top)) { free(top); top = NULL; goto fail; }
+  if (!RDL_stack_push(stack, top)) { RDL_free(top); top = NULL; goto fail; }
   top = NULL;
   new_bonds = NULL;
 
@@ -2013,9 +2013,9 @@ int RDL_validateBasis(const char** relevant_cycle_array,
     /* looking at this ring for the third time or at an non existing ring, end recursion */
     else {
       if (top->owns_bonds) {
-        free((char*)top->current_bonds);
+        RDL_free((char*)top->current_bonds);
       }
-      free(top);
+      RDL_free(top);
       RDL_stack_pop(stack);
     }
     if (stop(NULL)) {
@@ -2026,9 +2026,9 @@ int RDL_validateBasis(const char** relevant_cycle_array,
   while (!RDL_stack_empty(stack)) {
     top = RDL_stack_top(stack);
     if (top->owns_bonds) {
-      free((char*)top->current_bonds);
+      RDL_free((char*)top->current_bonds);
     }
-    free(top);
+    RDL_free(top);
     RDL_stack_pop(stack);
   }
 
@@ -2042,23 +2042,23 @@ int RDL_validateBasis(const char** relevant_cycle_array,
     result = -1;
   }
 
-  free(found_rc);
+  RDL_free(found_rc);
   for (i = 0; i < nof_rc; ++i) {
-    free(sortable_cycle_array[i]);
+    RDL_free(sortable_cycle_array[i]);
   }
-  free(sortable_cycle_array);
+  RDL_free(sortable_cycle_array);
 
   return result;
 fail:
-  free(new_bonds);
+  RDL_free(new_bonds);
   if (new_element) {
     if (new_element->owns_bonds) {
-      free((void *)new_element->current_bonds);
+      RDL_free((void *)new_element->current_bonds);
     }
-    free(new_element);
+    RDL_free(new_element);
   }
   RDL_freeValidationStack(stack);
-  free(found_rc);
+  RDL_free(found_rc);
   RDL_delete2DCharArray(sortable_cycle_array, nof_rc);
   return -2;
 }

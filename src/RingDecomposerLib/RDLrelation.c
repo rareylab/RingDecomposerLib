@@ -172,7 +172,7 @@ int RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo)
        * the cycle 0 (how could it?)
        */
       if (RDL_bitset_empty(compressedCycleWithSmallerAdded, empty_cycle, compressedSize)) {
-        free(compressedCycleWithSmallerAdded);
+        RDL_free(compressedCycleWithSmallerAdded);
         continue;
       }
 
@@ -229,7 +229,7 @@ int RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo)
           }
         }
 
-        free(compressedCycleWithEqualAdded);
+        RDL_free(compressedCycleWithEqualAdded);
       }
       else {
         /*
@@ -271,23 +271,23 @@ int RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo)
   success = 1;
 fail:
   for (i = 0; i < currentBasisCyclesSize; ++i) {
-    free(compressedBasisCycles[i]);
+    RDL_free(compressedBasisCycles[i]);
   }
-  free(compressedBasisCycles);
+  RDL_free(compressedBasisCycles);
 
   for (i = 0; i < currentRelevantCyclesSize; ++i) {
-    free(compressedRelevantCycles[i]);
+    RDL_free(compressedRelevantCycles[i]);
   }
-  free(compressedRelevantCycles);
-  free(relevantCyclesMap);
+  RDL_free(compressedRelevantCycles);
+  RDL_free(relevantCyclesMap);
 
   for (i = 0; i < RCFs->nofFams; ++i) {
     if (compressedPrototypesForGaussian) {
-      free(compressedPrototypesForGaussian[i]);
+      RDL_free(compressedPrototypesForGaussian[i]);
     }
   }
-  free(compressedPrototypesForGaussian);
-  free((void*)empty_cycle);
+  RDL_free(compressedPrototypesForGaussian);
+  RDL_free((void*)empty_cycle);
   return success;
 }
 
@@ -419,25 +419,25 @@ int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sP
 
     for(j=0; j<uInfo->nofProtos[i]; ++j) {
       if(edge_list[j]) {
-        free(edge_list[j]);
+        RDL_free(edge_list[j]);
       }
     }
-    free(edge_list); edge_list = NULL;
-    free(edge_list_size); edge_list_size = NULL;
+    RDL_free(edge_list); edge_list = NULL;
+    RDL_free(edge_list_size); edge_list_size = NULL;
   }
 
-  free(edges);
-  free(visited);
+  RDL_free(edges);
+  RDL_free(visited);
   edges = NULL;
   visited = NULL;
   success = 1;
 fail:
   if (edge_list) {
     for (j = 0; j < uInfo->nofProtos[i]; ++j) {
-      free(edge_list[j]);
+      RDL_free(edge_list[j]);
     }
   }
-  free(edge_list); free(edge_list_size); free(edges); free(visited);
+  RDL_free(edge_list); RDL_free(edge_list_size); RDL_free(edges); RDL_free(visited);
   return success;
 }
 
@@ -538,22 +538,22 @@ int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
     }
 
     for(j = 0; j < cc_id; ++j) {
-      free(cc[j]);
+      RDL_free(cc[j]);
     }
-    free(cc); cc = NULL;
-    free(cc_size); cc_size = NULL;
-    free(visited); visited = NULL;
-    free(elements); elements = NULL;
+    RDL_free(cc); cc = NULL;
+    RDL_free(cc_size); cc_size = NULL;
+    RDL_free(visited); visited = NULL;
+    RDL_free(elements); elements = NULL;
   }
 
   success = 1;
 fail:
   if (cc) {
     for (j = 0; j < uInfo->nofProtos[i]; ++j) {
-      free(cc[j]);
+      RDL_free(cc[j]);
     }
   }
-  free(cc); free(cc_size); free(visited); free(elements);
+  RDL_free(cc); RDL_free(cc_size); RDL_free(visited); RDL_free(elements);
   RDL_stack_delete(dfs_stack);
   return success;
 }

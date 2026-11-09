@@ -34,15 +34,7 @@ option(RDL_BUILD_ALLOCATION_TESTS "Build allocation failure injection tests" OFF
 if(RDL_BUILD_ALLOCATION_TESTS)
   get_target_property(RDL_ALLOCATION_SOURCES ${STATIC_LIBRARY} SOURCES)
   add_library(RDLAllocationTestLibrary STATIC ${RDL_ALLOCATION_SOURCES})
-  target_compile_definitions(RDLAllocationTestLibrary PRIVATE
-    malloc=audit_malloc calloc=audit_calloc realloc=audit_realloc free=audit_free)
-  if(MSVC)
-    target_compile_options(RDLAllocationTestLibrary PRIVATE
-      /FI${CMAKE_CURRENT_SOURCE_DIR}/tests/failure_alloc.h)
-  else()
-    target_compile_options(RDLAllocationTestLibrary PRIVATE
-      -include ${CMAKE_CURRENT_SOURCE_DIR}/tests/failure_alloc.h)
-  endif()
+  target_compile_definitions(RDLAllocationTestLibrary PRIVATE RDL_TEST_ALLOCATORS)
   add_executable(RDLAllocationFailures tests/allocation_failures.c)
   target_include_directories(RDLAllocationFailures PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
   target_link_libraries(RDLAllocationFailures RDLAllocationTestLibrary)

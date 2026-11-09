@@ -172,13 +172,13 @@ static int RDL_tarjanVisit(const RDL_graph* graph, unsigned start, unsigned* d,
     }
   }
 
-  free(edge_elements);
-  free(dfs_elements);
+  RDL_free(edge_elements);
+  RDL_free(dfs_elements);
   RDL_stack_delete(dfs_stack);
   return 1;
 fail:
-  free(edge_elements);
-  free(dfs_elements);
+  RDL_free(edge_elements);
+  RDL_free(dfs_elements);
   RDL_stack_delete(dfs_stack);
   return 0;
 }
@@ -222,11 +222,11 @@ static unsigned RDL_tarjan(const RDL_graph* graph,
 
   result = curr_bcc - 1;
 fail:
-  free(d);
-  free(low);
+  RDL_free(d);
+  RDL_free(low);
   RDL_stack_delete(edge_stack);
   if (result == RDL_INVALID_RESULT) {
-    free(*bcc);
+    RDL_free(*bcc);
     *bcc = NULL;
   }
   return result;
@@ -425,13 +425,13 @@ RDL_BCCGraph* RDL_tarjanBCC(const RDL_graph* graph)
     }
   }
 
-  free(bcc);
-  free(bcc_size);
-  free(non_trivial_mapping);
+  RDL_free(bcc);
+  RDL_free(bcc_size);
+  RDL_free(non_trivial_mapping);
 
   return result;
 fail:
-  free(bcc); free(bcc_size); free(non_trivial_mapping);
+  RDL_free(bcc); RDL_free(bcc_size); RDL_free(non_trivial_mapping);
   RDL_deleteBCCGraph(result);
   return NULL;
 }
@@ -448,31 +448,31 @@ void RDL_deleteBCCGraph(RDL_BCCGraph* graph)
       RDL_deleteGraph(graph->bcc_graphs[i]);
     }
     if (graph->edge_from_bcc_mapping) {
-      free(graph->edge_from_bcc_mapping[i]);
+      RDL_free(graph->edge_from_bcc_mapping[i]);
     }
     if (graph->node_from_bcc_mapping) {
-      free(graph->node_from_bcc_mapping[i]);
+      RDL_free(graph->node_from_bcc_mapping[i]);
     }
   }
-  free(graph->bcc_graphs);
-  free(graph->edge_from_bcc_mapping);
-  free(graph->node_from_bcc_mapping);
-  free(graph->nof_edges_per_bcc);
-  free(graph->nof_nodes_per_bcc);
+  RDL_free(graph->bcc_graphs);
+  RDL_free(graph->edge_from_bcc_mapping);
+  RDL_free(graph->node_from_bcc_mapping);
+  RDL_free(graph->nof_edges_per_bcc);
+  RDL_free(graph->nof_nodes_per_bcc);
 
   for (i = 0; i < graph->complete_graph->V; ++i) {
     if (graph->node_to_bcc_mapping) {
-      free(graph->node_to_bcc_mapping[i]);
+      RDL_free(graph->node_to_bcc_mapping[i]);
     }
   }
-  free(graph->node_to_bcc_mapping);
+  RDL_free(graph->node_to_bcc_mapping);
 
   for (i = 0; i < graph->complete_graph->E; ++i) {
     if (graph->edge_to_bcc_mapping) {
-      free(graph->edge_to_bcc_mapping[i]);
+      RDL_free(graph->edge_to_bcc_mapping[i]);
     }
   }
-  free(graph->edge_to_bcc_mapping);
-  free(graph->nof_bcc_per_node);
-  free(graph);
+  RDL_free(graph->edge_to_bcc_mapping);
+  RDL_free(graph->nof_bcc_per_node);
+  RDL_free(graph);
 }

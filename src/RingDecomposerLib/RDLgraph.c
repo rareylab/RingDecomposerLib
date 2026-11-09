@@ -70,7 +70,7 @@ int RDL_checkGraphConnected(const RDL_graph *gra)
     }
   }
 
-  free(visited);
+  RDL_free(visited);
   return result;
 }
 
@@ -98,20 +98,20 @@ void RDL_deleteGraph(RDL_graph *gra)
   {
     for(i=0; i<gra->E; ++i)
     {
-      free(gra->edges[i]);
+      RDL_free(gra->edges[i]);
     }
-    free(gra->edges);
+    RDL_free(gra->edges);
   }
   for(i=0; i<gra->V; ++i)
   {
     if(gra->adjList)
     {
-      free(gra->adjList[i]);
+      RDL_free(gra->adjList[i]);
     }
   }
-  free(gra->adjList);
-  free(gra->degree);
-  free(gra);
+  RDL_free(gra->adjList);
+  RDL_free(gra->degree);
+  RDL_free(gra);
 }
 
 void RDL_printGraph(const RDL_graph *graph)
