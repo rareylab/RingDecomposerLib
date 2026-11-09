@@ -20,6 +20,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "RDLbitset.h"
 #include "RDLutility.h"
@@ -122,4 +123,28 @@ void RDL_swap_columns(unsigned char** rows, unsigned nof_rows, unsigned col1, un
 unsigned char RDL_bitset_test(unsigned char* bitset, unsigned pos)
 {
   return (bitset[pos / BlockSize] >> (pos % BlockSize)) & 1;
+}
+
+/* Convert a byte-per-entry bitset to a UINT_MAX-terminated index array. */
+unsigned *RDL_bitset_to_array(const char *bitset, unsigned size,
+    const unsigned *mapping, unsigned *count)
+{
+  unsigned i, next = 0;
+  unsigned *result;
+
+  *count = 0;
+  for (i = 0; i < size; ++i) {
+    *count += bitset[i] != 0;
+  }
+  result = RDL_alloc((size_t)*count + 1, sizeof(*result));
+  if (!result) {
+    return NULL;
+  }
+  for (i = 0; i < size; ++i) {
+    if (bitset[i]) {
+      result[next++] = mapping ? mapping[i] : i;
+    }
+  }
+  result[next] = UINT_MAX;
+  return result;
 }

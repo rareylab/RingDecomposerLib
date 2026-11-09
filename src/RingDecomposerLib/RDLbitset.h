@@ -35,5 +35,9 @@ unsigned RDL_bitset_compressed(unsigned char** compressed, const char* edges, un
 
 unsigned char RDL_bitset_test(unsigned char* bitset, unsigned pos);
 
+/* Convert a byte-per-entry bitset to a UINT_MAX-terminated index array. */
+unsigned *RDL_bitset_to_array(const char *bitset, unsigned size,
+    const unsigned *mapping, unsigned *count);
+
 
 #endif
