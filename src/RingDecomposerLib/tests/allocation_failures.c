@@ -89,37 +89,74 @@ void *audit_realloc(void *p, size_t n)
 }
 void audit_free(void *p) { forget(p); free(p); }
 
+enum GraphShape {
+  GRAPH_EMPTY,
+  GRAPH_COMPLETE_8,
+  GRAPH_TWO_TRIANGLES,
+  GRAPH_CYCLE_75,
+  GRAPH_MIXED,
+  GRAPH_COMPLETE_9,
+  GRAPH_SHAPE_COUNT
+};
+
+static void add_edge_checked(RDL_graph *graph, unsigned from, unsigned to)
+{
+  unsigned result = RDL_addUEdge(graph, from, to);
+  assert(result != RDL_INVALID_RESULT);
+}
+
 static RDL_graph *make_graph(unsigned shape)
 {
-  unsigned i, j;
-  RDL_graph *g = RDL_initNewGraph(shape == 3 ? 75 : (shape == 5 ? 9 : 8));
+  unsigned i, j, vertex_count;
+  RDL_graph *g;
+
+  switch (shape) {
+    case GRAPH_EMPTY:
+    case GRAPH_COMPLETE_8:
+    case GRAPH_TWO_TRIANGLES:
+    case GRAPH_MIXED:
+      vertex_count = 8;
+      break;
+    case GRAPH_CYCLE_75:
+      vertex_count = 75;
+      break;
+    case GRAPH_COMPLETE_9:
+      vertex_count = 9;
+      break;
+    default:
+      abort();
+  }
+  g = RDL_initNewGraph(vertex_count);
   assert(g);
-  if (shape == 0) {
+  if (shape == GRAPH_EMPTY) {
     return g;
   }
-  if (shape == 1 || shape == 5) {
-    for (i = 0; i < (shape == 5 ? 9 : 8); ++i) {
-      for (j = i + 1; j < (shape == 5 ? 9 : 8); ++j) {
-        assert(RDL_addUEdge(g, i, j) != RDL_INVALID_RESULT);
+  if (shape == GRAPH_COMPLETE_8 || shape == GRAPH_COMPLETE_9) {
+    for (i = 0; i < vertex_count; ++i) {
+      for (j = i + 1; j < vertex_count; ++j) {
+        add_edge_checked(g, i, j);
       }
     }
-  } else if (shape == 2) {
+  } else if (shape == GRAPH_TWO_TRIANGLES) {
     for (i = 0; i < 6; i += 3) {
-      RDL_addUEdge(g, i, i+1); RDL_addUEdge(g, i+1, i+2);
-      RDL_addUEdge(g, i+2, i);
+      add_edge_checked(g, i, i+1);
+      add_edge_checked(g, i+1, i+2);
+      add_edge_checked(g, i+2, i);
     }
-  } else if (shape == 3) {
-    for (i = 0; i < 75; ++i) {
-      RDL_addUEdge(g, i, (i + 1) % 75);
+  } else if (shape == GRAPH_CYCLE_75) {
+    for (i = 0; i < vertex_count; ++i) {
+      add_edge_checked(g, i, (i + 1) % vertex_count);
     }
   }
-  if (shape == 4) {
+  if (shape == GRAPH_MIXED) {
     for (i = 0; i < 3; ++i) {
       for (j = 3; j < 6; ++j) {
-        RDL_addUEdge(g, i, j);
+        add_edge_checked(g, i, j);
       }
     }
-    RDL_addUEdge(g, 5, 6); RDL_addUEdge(g, 6, 7); RDL_addUEdge(g, 7, 3);
+    add_edge_checked(g, 5, 6);
+    add_edge_checked(g, 6, 7);
+    add_edge_checked(g, 7, 3);
   }
   return g;
 }
@@ -186,61 +223,105 @@ static int query(RDL_data *data, unsigned op)
   return 1;
 }
 
-static void sweep_calculation(unsigned shape)
+typedef int (*SweepOperation)(void *context, long point);
+
+static void sweep(const char *name, SweepOperation operation, void *context)
 {
-  long point, total, baseline;
+  long point, total;
+  int success;
   for (point = 0; ; ++point) {
-    RDL_graph *g = make_graph(shape);
-    RDL_data *data;
-    baseline = live; calls = 0; errors = 0; fail_at = point;
-    data = RDL_calculate(g);
-    total = calls; fail_at = -1;
-    if (point < total) { assert(!data); assert(errors); }
-    if (data) {
-      RDL_deleteData(data);
-    } else {
-      assert(live == baseline);
-      RDL_deleteGraph(g);
-    }
-    assert(live == 0);
+    calls = 0;
+    errors = 0;
+    fail_at = -1;
+    success = operation(context, point);
+    total = calls;
+    fail_at = -1;
+    assert(success == (point >= total));
     if (point >= total) {
       break;
     }
   }
-  printf("Calculation shape %u: %ld allocation points\n", shape, total);
+  printf("%s: %ld allocation points\n", name, total);
 }
 
-static void sweep_queries(unsigned shape)
+static int calculation_step(void *context, long point)
 {
-  unsigned op;
-  for (op = 0; op < (shape == 2 ? 18 : 17); ++op) {
-    long point, total, baseline;
-    for (point = 0; ; ++point) {
-      RDL_data *data = RDL_calculate(make_graph(shape));
-      int success;
-      assert(data);
-      baseline = live; calls = 0; errors = 0; fail_at = point;
-      success = query(data, op);
-      total = calls; fail_at = -1;
-      if (point < total) {
-        assert(errors);
-      }
-      if (point < total && success) {
-        fprintf(stderr, "Query %u shape %u swallowed failure %ld\n", op, shape, point);
-        abort();
-      }
-      if (live != baseline) {
-        fprintf(stderr, "Query %u shape %u failure %ld: live %ld, expected %ld\n",
-                op, shape, point, live, baseline); abort();
-      }
-      RDL_deleteData(data);
-      assert(live == 0);
-      if (point >= total) {
-        break;
-      }
-    }
-    printf("Query %u shape %u: %ld allocation points\n", op, shape, total);
+  unsigned shape = *(unsigned *)context;
+  long baseline;
+  RDL_graph *g;
+  RDL_data *data;
+  fail_at = -1;
+  g = make_graph(shape);
+  baseline = live;
+  calls = 0; errors = 0; fail_at = point;
+  data = RDL_calculate(g);
+  if (point < calls) { assert(!data); assert(errors); }
+  if (data) {
+    RDL_deleteData(data);
+  } else {
+    assert(live == baseline);
+    RDL_deleteGraph(g);
   }
+  fail_at = -1;
+  assert(live == 0);
+  return data != NULL;
+}
+
+typedef struct { unsigned shape, op; } QueryContext;
+static int query_step(void *context, long point)
+{
+  QueryContext *ctx = context;
+  long baseline, total;
+  RDL_data *data;
+  int success;
+  fail_at = -1;
+  data = RDL_calculate(make_graph(ctx->shape));
+  assert(data);
+  baseline = live; calls = 0; errors = 0; fail_at = point;
+  success = query(data, ctx->op);
+  total = calls;
+  fail_at = -1;
+  if (point < total) {
+    assert(errors);
+    if (success) {
+      fprintf(stderr, "Query %u shape %u swallowed failure %ld\n",
+              ctx->op, ctx->shape, point);
+      abort();
+    }
+  }
+  if (live != baseline) {
+    fprintf(stderr, "Query %u shape %u failure %ld: live %ld, expected %ld\n",
+            ctx->op, ctx->shape, point, live, baseline);
+    abort();
+  }
+  RDL_deleteData(data);
+  assert(live == 0);
+  return success;
+}
+
+typedef struct {
+  const char **rings;
+  unsigned *bcc;
+  unsigned *families;
+  unsigned op;
+} ValidatorContext;
+static int validator_step(void *context, long point)
+{
+  ValidatorContext *ctx = context;
+  int result;
+  calls = 0; errors = 0; fail_at = point;
+  if (ctx->op == 0) {
+    result = RDL_validateBasis(ctx->rings, 3, ctx->rings, 2, 4,
+        ctx->bcc, RDL_no_stop_fun);
+  } else {
+    result = RDL_validateRingFamilies(ctx->rings, ctx->families, 3, 4,
+        RDL_no_stop_fun);
+  }
+  if (point < calls) {
+    assert(result == -2);
+  }
+  assert(live == 0);
+  return result != -2;
 }
 
 static void sweep_validators(void)
@@ -248,63 +329,74 @@ static void sweep_validators(void)
   const char a[] = {1, 1, 0, 0}, b[] = {0, 1, 1, 0}, c[] = {1, 0, 1, 0};
   const char *rings[] = {a, b, c};
   unsigned bcc[] = {0, 0, 0}, families[] = {0, 0, 0}, op;
+  ValidatorContext context;
+  char name[40];
+  context.rings = rings; context.bcc = bcc; context.families = families;
   for (op = 0; op < 2; ++op) {
-    long point, total;
-    for (point = 0; ; ++point) {
-      int result;
-      calls = 0; errors = 0; fail_at = point;
-      if (op == 0) {
-        result = RDL_validateBasis(rings, 3, rings, 2, 4, bcc, RDL_no_stop_fun);
-      } else {
-        result = RDL_validateRingFamilies(rings, families, 3, 4, RDL_no_stop_fun);
-      }
-      total = calls; fail_at = -1;
-      if (point < total) {
-        assert(result == -2);
-      }
-      assert(live == 0);
-      if (point >= total) {
-        break;
-      }
-    }
-    printf("Validator %u: %ld allocation points\n", op, total);
+    context.op = op;
+    snprintf(name, sizeof(name), "Validator %u", op);
+    sweep(name, validator_step, &context);
   }
 }
 
-static void sweep_insertion(void)
+typedef struct { unsigned full; } InsertionContext;
+static int insertion_step(void *context, long point)
 {
-  unsigned full;
-  for (full = 0; full < 2; ++full) {
-    long point, total;
-    for (point = 0; ; ++point) {
-      RDL_graph *g = RDL_initNewGraph(70);
-      unsigned i, result, before;
-      if (full) {
-        for (i = 0; i < 64; ++i) {
-          RDL_addUEdge(g, i, i + 1);
-        }
-      }
-      before = g->E;
-      calls = 0; errors = 0; fail_at = point;
-      result = RDL_addUEdge(g, 65, 66);
-      total = calls; fail_at = -1;
-      if (point < total) {
-        assert(result == RDL_INVALID_RESULT && g->E == before);
-        assert(g->degree[65] == 0 && g->degree[66] == 0);
-        assert(RDL_addUEdge(g, 65, 66) != RDL_INVALID_RESULT);
-      }
-      RDL_deleteGraph(g); assert(live == 0);
-      if (point >= total) {
-        break;
-      }
+  InsertionContext *ctx = context;
+  RDL_graph *g;
+  unsigned i, result, before;
+  fail_at = -1;
+  g = RDL_initNewGraph(70);
+  assert(g);
+  if (ctx->full) {
+    for (i = 0; i < 64; ++i) {
+      assert(RDL_addUEdge(g, i, i + 1) != RDL_INVALID_RESULT);
     }
   }
+  before = g->E;
+  calls = 0; errors = 0; fail_at = point;
+  result = RDL_addUEdge(g, 65, 66);
+  if (point < calls) {
+    assert(result == RDL_INVALID_RESULT && g->E == before);
+    assert(g->degree[65] == 0 && g->degree[66] == 0);
+    fail_at = -1;
+    assert(RDL_addUEdge(g, 65, 66) != RDL_INVALID_RESULT);
+  }
+  fail_at = -1;
+  RDL_deleteGraph(g);
+  assert(live == 0);
+  return result != RDL_INVALID_RESULT;
+}
+
+static int graph_init_step(void *context, long point)
+{
+  RDL_graph *g;
+  (void)context;
+  calls = 0; errors = 0; fail_at = point;
+  g = RDL_initNewGraph(3);
+  if (point < calls) { assert(!g); assert(errors); }
+  RDL_deleteGraph(g);
+  fail_at = -1;
+  assert(live == 0);
+  return g != NULL;
+}
+
+static int dimacs_step(void *context, long point)
+{
+  const char *path = context;
+  RDL_DimacsGraph *g;
+  calls = 0; errors = 0; fail_at = point;
+  g = RDL_dimacsGraph_read(path);
+  if (point < calls) { assert(!g); assert(errors); }
+  RDL_dimacsGraph_delete(g);
+  fail_at = -1;
+  assert(live == 0);
+  return g != NULL;
 }
 
 int main(int argc, char **argv)
 {
   unsigned shape;
-  long point, total;
   assert(argc == 2);
   RDL_setOutputFunction(report_error);
   {
@@ -315,36 +407,31 @@ int main(int argc, char **argv)
     audit_free(original);
     assert(!RDL_alloc((size_t)-1, 2));
   }
-  for (point = 0; ; ++point) {
-    RDL_graph *g;
-    calls = 0; errors = 0; fail_at = point;
-    g = RDL_initNewGraph(3);
-    total = calls; fail_at = -1;
-    if (point < total) { assert(!g); assert(errors); }
-    RDL_deleteGraph(g); assert(live == 0);
-    if (point >= total) {
-      break;
-    }
-  }
+  sweep("Graph initialization", graph_init_step, NULL);
   sweep_validators();
-  sweep_insertion();
-  for (shape = 0; shape < 6; ++shape) {
-    sweep_calculation(shape);
+  {
+    InsertionContext context;
+    context.full = 0;
+    sweep("Edge insertion", insertion_step, &context);
+    context.full = 1;
+    sweep("Edge insertion with capacity growth", insertion_step, &context);
   }
-  for (shape = 1; shape < 5; ++shape) {
-    sweep_queries(shape);
+  for (shape = GRAPH_EMPTY; shape < GRAPH_SHAPE_COUNT; ++shape) {
+    char name[64];
+    snprintf(name, sizeof(name), "Calculation shape %u", shape);
+    sweep(name, calculation_step, &shape);
   }
-  for (point = 0; ; ++point) {
-    RDL_DimacsGraph *g;
-    calls = 0; errors = 0; fail_at = point;
-    g = RDL_dimacsGraph_read(argv[1]);
-    total = calls; fail_at = -1;
-    if (point < total) { assert(!g); assert(errors); }
-    RDL_dimacsGraph_delete(g); assert(live == 0);
-    if (point >= total) {
-      break;
+  for (shape = GRAPH_COMPLETE_8; shape <= GRAPH_MIXED; ++shape) {
+    QueryContext context;
+    unsigned op;
+    context.shape = shape;
+    for (op = 0; op < (shape == GRAPH_TWO_TRIANGLES ? 18 : 17); ++op) {
+      char name[80];
+      context.op = op;
+      snprintf(name, sizeof(name), "Query %u shape %u", op, shape);
+      sweep(name, query_step, &context);
     }
   }
-  printf("DIMACS: %ld allocation points\n", total);
+  sweep("DIMACS", dimacs_step, argv[1]);
   return 0;
 }
