@@ -121,7 +121,7 @@ static char *RDL_findPrototype(unsigned r, unsigned y, unsigned z, unsigned x,
   return proto;
 }
 
-/** fills the rc datastructure with the odd cycle r-y-z-r */
+/** fills the cycle-family data structure for an odd or even cycle */
 static int RDL_addFamily(unsigned r, unsigned y, unsigned z, unsigned x,
     RDL_graph *gra, RDL_sPathInfo *spi, RDL_cfURF *rc)
 {

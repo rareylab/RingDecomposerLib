@@ -304,7 +304,6 @@ char** RDL_calculate_pairwise_family(const char** cycle_array,
     goto fail;
   }
 
-  memset(family_relation_data, 0, matrix_size * sizeof(*family_relation_data));
   family_relation = RDL_alloc(nof_rings, sizeof(*family_relation));
   if (!family_relation) {
     goto fail;
@@ -1892,7 +1891,6 @@ int RDL_validateBasis(const char** relevant_cycle_array,
   if (!found_rc) {
     goto fail;
   }
-  memset(found_rc, 0, nof_rc * sizeof(*found_rc));
 
   sortable_cycle_array = RDL_alloc(nof_rc, sizeof(*sortable_cycle_array));
 
@@ -1923,7 +1921,6 @@ int RDL_validateBasis(const char** relevant_cycle_array,
   top->current_ring_idx = 0;
   new_bonds = RDL_alloc((size_t)nof_bonds + 1, sizeof(*new_bonds));
   if (!new_bonds) { free(top); goto fail; }
-  memset(new_bonds, 0, (nof_bonds + 1) * sizeof(*new_bonds));
   new_bonds[nof_bonds] = 2;
   top->current_bonds = new_bonds;
   top->stage = 0;

@@ -130,7 +130,6 @@ int RDL_checkDependencies(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo)
   if (!empty_cycle) {
     goto fail;
   }
-  memset((unsigned char*)empty_cycle, 0, compressedSize * sizeof(*empty_cycle));
   /* printf("%d %d\n", compressedSize, graph->E); */
 
   /* iterate over all weights */
@@ -300,7 +299,6 @@ int RDL_findEdges(char *edges, RDL_cfam *RCF, RDL_graph *gra, RDL_sPathInfo *spi
   if (!visited) {
     goto fail;
   }
-  memset(visited, 0, gra->V * sizeof(*visited));
   RDL_giveEdges(RCF->r, RCF->p, edges, gra, spi, visited);
   memset(visited, 0, gra->V * sizeof(*visited));
   RDL_giveEdges(RCF->r, RCF->q, edges, gra, spi, visited);
@@ -338,9 +336,6 @@ int RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *gra
   if (!edges2) {
     goto fail;
   }
-
-  memset(edges1, 0, graph->E * sizeof(*edges1));
-  memset(edges2, 0, graph->E * sizeof(*edges2));
 
   if (!RDL_findEdges(edges1, RCFs->fams[idx1], graph, spi)) {
     goto fail;
@@ -514,8 +509,6 @@ int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
     if (!visited) {
       goto fail;
     }
-    memset(visited, 0, uInfo->nofProtos[i] * sizeof(*visited));
-
     cc_id = 0;
     cc = RDL_alloc(uInfo->nofProtos[i], sizeof(*cc));
     if (!cc) {

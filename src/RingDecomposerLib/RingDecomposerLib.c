@@ -328,7 +328,6 @@ static int RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
   }
 
   /* BFS on both shortest path graphs */
-  memset(visited, 0, graph->V *  sizeof(*visited));
   RDL_giveVertices(URF[rcf_internal_index]->r, URF[rcf_internal_index]->q,
       atoms, data->spiPerBCC[bcc_index], visited);
 
@@ -364,7 +363,6 @@ static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index)
   if (!atoms) {
     goto fail;
   }
-  memset(atoms, 0, graph->V * sizeof(*atoms));
 
   nofFams = data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[internal_index];
   /* iterate over all RCFs in this URFs and collect data in one bitset (atoms) */
@@ -404,7 +402,6 @@ static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
   if (!atoms) {
     goto fail;
   }
-  memset(atoms, 0, graph->V * sizeof(*atoms));
 
   /* save the nodes into bitset */
   if (!RDL_getNodes_internal(data, bcc_index, urf_internal_index, rcf_internal_index, atoms)) {
@@ -571,7 +568,6 @@ static int RDL_getEdges_internal(const RDL_data *data,
   if (!visited) {
     goto fail;
   }
-  memset(visited, 0, graph->V *  sizeof(*visited));
 
   RDL_giveEdges(URF[rcf_internal_index]->r, URF[rcf_internal_index]->q,
       edges, graph, data->spiPerBCC[bcc_index], visited);
@@ -617,7 +613,6 @@ static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
   if (!edges) {
     goto fail;
   }
-  memset(edges, 0, graph->E * sizeof(*edges));
 
   nofFams = data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[internal_index];
   /* iterate over all RCFs in this URF and collect results in bitset (edges) */
@@ -658,7 +653,6 @@ static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
   if (!edges) {
     goto fail;
   }
-  memset(edges, 0, graph->E * sizeof(*edges));
 
   if (!RDL_getEdges_internal(data, bcc_index, urf_internal_index, rcf_internal_index, edges)) {
     goto fail;
@@ -1257,7 +1251,6 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
     if (!empty_cycle) {
       goto fail;
     }
-    memset((unsigned char*)empty_cycle, 0, compressedSize * sizeof(*empty_cycle));
 
     added = 0;
     currentBasisCyclesSize = 0;

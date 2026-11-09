@@ -24,6 +24,7 @@
 #include "RingDecomposerLib.h"
 #include <stddef.h>
 
+/* Returns zero-initialized storage; count == 0 still returns freeable storage. */
 void *RDL_alloc(size_t count, size_t size);
 void *RDL_resize(void *ptr, size_t count, size_t size);
 

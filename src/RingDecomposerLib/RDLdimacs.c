@@ -102,7 +102,6 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
           if (!graph->cycles) {
             goto fail;
           }
-          memset(graph->cycles, 0, graph->nof_cycles * sizeof(*graph->cycles));
         }
         else if (read_initializer == 2) {
           graph->edges = RDL_alloc(graph->nof_edges, sizeof(*graph->edges));
@@ -277,7 +276,6 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
         if (!graph->sorted_cycles[ring_idx]) {
           goto fail;
         }
-        memset(graph->sorted_cycles[ring_idx], 0, graph->nof_edges * sizeof(**graph->sorted_cycles));
         graph->sorted_cycles[ring_idx][graph->nof_edges] = 2;
         for (edge_idx = 0; edge_idx < graph->cycles[ring_idx]->weight; ++edge_idx) {
           edge[0] = graph->cycles[ring_idx]->edges[edge_idx][0];

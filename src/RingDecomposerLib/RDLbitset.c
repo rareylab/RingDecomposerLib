@@ -72,7 +72,6 @@ unsigned RDL_bitset_init(unsigned char** compressed, unsigned size)
   if (!*compressed) {
     return RDL_INVALID_RESULT;
   }
-  memset(*compressed, 0, new_size * sizeof(**compressed));
 
   return new_size;
 }
