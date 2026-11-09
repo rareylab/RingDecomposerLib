@@ -91,32 +91,34 @@ static int RDL_findpaths(RDL_sPathInfo *spi, RDL_graph *gra)
         {
           j=gra->adjList[w][adj][0];
           /*if j precedes i in order (only first run)*/
-          if (run == 2 || ((gra->degree[j] == gra->degree[i]) && j < i) ||
-              gra->degree[j] < gra->degree[i]) {
-            if (color[j] == 'w') /*unvisited*/
-            {
-              if (run == 2) { /*if in the 2nd run a dist gets shorter*/
-                if (spi->dist[i][w] + 1 < spi->dist[i][j]) { /*not element of Vr*/
-                  spi->reachable[i][j] = 0;
-                }
+          if(run==2 || ((gra->degree[j] == gra->degree[i]) && j<i) ||
+          gra->degree[j] < gra->degree[i])
+          if(color[j] == 'w') /*unvisited*/
+          {
+            if(run==2)
+            {/*if in the 2nd run a dist gets shorter*/
+              if(spi->dist[i][w]+1 < spi->dist[i][j])
+              {/*not element of Vr*/
+                spi->reachable[i][j] = 0;
               }
-              if (run == 1 ||
-                  (spi->dist[i][w] + 1 <
-                   spi->dist[i][j])) { /*if 2nd run and dist stays the same, pred shouldn't
+            }
+            if(run==1 || (spi->dist[i][w]+1 < spi->dist[i][j]))
+            {/*if 2nd run and dist stays the same, pred shouldn't
             change to keep the shortest path along ordering*/
-                /*predecessor of j on a shortest path from i to j*/
-                spi->pred[i][j] = w;
-              }
-              if (spi->dist[i][j] > spi->dist[i][w] + 1) {
-                spi->dist[i][j] = spi->dist[i][w] + 1;
-              }
-              color[j] = 'b';
-              queue[q_nextfree] = j; /*enqueue*/
-              ++q_nextfree;          /*enqueue*/
-              ++q_size;              /*enqueue*/
-              if (run == 1) {        /*reachable should not change to 1 in the 2nd run*/
-                spi->reachable[i][j] = 1;
-              }
+              /*predecessor of j on a shortest path from i to j*/
+              spi->pred[i][j] = w;
+            }
+            if(spi->dist[i][j] > spi->dist[i][w]+1)
+            {
+              spi->dist[i][j] = spi->dist[i][w] + 1;
+            }
+            color[j] = 'b';
+            queue[q_nextfree] = j; /*enqueue*/
+            ++q_nextfree; /*enqueue*/
+            ++q_size; /*enqueue*/
+            if(run==1)
+            {/*reachable should not change to 1 in the 2nd run*/
+              spi->reachable[i][j] = 1;
             }
           }
         }
