@@ -570,9 +570,8 @@ fail:
 /* construct an RDL_cycle from the compressed bitset */
 RDL_cycle* RDL_cycleIteratorGetCycle(RDL_cycleIterator* it)
 {
-  unsigned edgeCount = 0, j, mapped_edge, alloced = 64;
+  unsigned edgeCount = 0, j, mapped_edge;
   RDL_cycle* rdl_cycle = NULL;
-  void *resized;
 
   if (it == NULL) {
     RDL_outputFunc(RDL_ERROR, "Iterator is NULL!\n");
@@ -597,7 +596,10 @@ RDL_cycle* RDL_cycleIteratorGetCycle(RDL_cycleIterator* it)
     goto fail;
   }
 
-  rdl_cycle->edges = RDL_alloc(alloced, sizeof(*rdl_cycle->edges));
+  for (j = 0; j < it->data->bccGraphs->bcc_graphs[it->bcc_index]->E; ++j) {
+    edgeCount += RDL_bitset_test(it->compressed_cycle, j);
+  }
+  rdl_cycle->edges = RDL_alloc(edgeCount, sizeof(*rdl_cycle->edges));
 
   if (!rdl_cycle->edges) {
     goto fail;
@@ -605,19 +607,9 @@ RDL_cycle* RDL_cycleIteratorGetCycle(RDL_cycleIterator* it)
   rdl_cycle->urf = it->running_urf;
   rdl_cycle->rcf = it->running_rcf;
 
+  edgeCount = 0;
   for(j=0; j < it->data->bccGraphs->bcc_graphs[it->bcc_index]->E; ++j) {
     if(RDL_bitset_test(it->compressed_cycle, j)) {
-      if (edgeCount >= alloced) {
-        if (alloced > UINT_MAX / 2) {
-          goto fail;
-        }
-        alloced *= 2;
-        resized = RDL_resize(rdl_cycle->edges, alloced, sizeof(*rdl_cycle->edges));
-        if (!resized) {
-          goto fail;
-        }
-        rdl_cycle->edges = resized;
-      }
       mapped_edge = it->data->bccGraphs->edge_from_bcc_mapping[it->bcc_index][j];
       rdl_cycle->edges[edgeCount][0] = it->data->graph->edges[mapped_edge][0];
       rdl_cycle->edges[edgeCount][1] = it->data->graph->edges[mapped_edge][1];
