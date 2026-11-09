@@ -1716,6 +1716,13 @@ static unsigned RDL_getRCycles_internal(
   }
   RDL_deleteCycleIterator(it);
 
+  /* Keep the smaller result when possible; a failed shrink is harmless. */
+  {
+    RDL_cycle **shrunk = realloc(result, (nextfree ? nextfree : 1) * sizeof(*result));
+    if (shrunk) {
+      result = shrunk;
+    }
+  }
 
   *ptr = result;
   return nextfree;
