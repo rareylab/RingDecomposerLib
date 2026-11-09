@@ -368,15 +368,19 @@ fail:
 static int make_edge_list(unsigned **edge_list, unsigned *edge_list_size,
     char *edges, RDL_graph *graph, RDL_cfam *rcf, RDL_sPathInfo *spi)
 {
-  unsigned i;
+  unsigned i, count = 0;
   memset(edges, 0, graph->E * sizeof(*edges));
   if (!RDL_findEdges(edges, rcf, graph, spi)) {
     return 0;
   }
-  *edge_list = RDL_alloc(graph->E, sizeof(**edge_list));
+  for (i = 0; i < graph->E; ++i) {
+    count += edges[i] != 0;
+  }
+  *edge_list = RDL_alloc(count, sizeof(**edge_list));
   if (!*edge_list) {
     return 0;
   }
+  *edge_list_size = 0;
   for (i = 0; i < graph->E; ++i) {
     if (edges[i]) {
       (*edge_list)[(*edge_list_size)++] = i;
