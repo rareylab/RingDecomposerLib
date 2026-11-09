@@ -42,11 +42,11 @@ static void RDL_DFSvisit(const RDL_graph *gra, unsigned vertex, char *visited)
 }
 
 /** returns 1 if the graph is connected, 0 otherwise. uses DFS */
-char RDL_checkGraphConnected(const RDL_graph *gra)
+int RDL_checkGraphConnected(const RDL_graph *gra)
 {
   unsigned i;
   char *visited;
-  char result;
+  int result;
   result = 1;
   if (!gra->V) {
     return 1;

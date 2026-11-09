@@ -1757,7 +1757,7 @@ int RDL_checkConsistency(const RDL_data* data)
   RDL_cycle **cycle_array1;
 
   const RDL_graph* graph = data->graph;
-  char graph_connected;
+  int graph_connected;
   RDL_cycleIterator *it;
 
 
@@ -1772,7 +1772,7 @@ int RDL_checkConsistency(const RDL_data* data)
   nof_nodes = graph->V;
   z = nof_edges - nof_nodes + 1;
   graph_connected = RDL_checkGraphConnected(data->graph);
-  if (graph_connected == (char)-1) {
+  if (graph_connected == -1) {
     return 1;
   }
 

@@ -70,8 +70,8 @@ int RDL_isAdj(const RDL_graph *, unsigned i, unsigned j);
     graph is undirected) */
 void RDL_printGraph(const RDL_graph *graph);
 
-/* Returns 1 if connected, 0 if disconnected, (char)-1 on allocation failure. */
-char RDL_checkGraphConnected(const RDL_graph *gra);
+/* Returns 1 if connected, 0 if disconnected, -1 on allocation failure. */
+int RDL_checkGraphConnected(const RDL_graph *gra);
 
 /** Returns the index of the bond connecting the atoms 'from' and 'to' */
 unsigned RDL_edgeId(const RDL_graph *gra, unsigned from, unsigned to);
