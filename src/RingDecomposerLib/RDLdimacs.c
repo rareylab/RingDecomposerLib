@@ -182,6 +182,9 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
               }
             }
 
+            if (error) {
+              break;
+            }
             ring_position_counter = 0;
             graph->cycles[ring-1] = RDL_alloc(1, sizeof(**graph->cycles));
             if (!graph->cycles[ring - 1]) {
