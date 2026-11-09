@@ -448,7 +448,7 @@ int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
   unsigned i=0,j,k,l;
   RDL_stack* dfs_stack = NULL;
   int success = 0;
-  char* visited;
+  char* visited = NULL;
   unsigned cc_id;
   unsigned **cc = NULL;
   unsigned *cc_size = NULL;
