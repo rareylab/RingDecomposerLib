@@ -127,7 +127,7 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
         error = 1;
       }
       else {
-        if (sscanf(line, "e %u %u", &node1, &node2) != 2) {
+        if (!sscanf(line, "e %u %u", &node1, &node2)) {
           RDL_outputFunc(RDL_ERROR, "invalid edge specification line\n");
           error = 1;
         }
@@ -171,11 +171,6 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
         }
         else {
           if (ring != last_ring) {
-            if (!last_ring && ring != 1) {
-              RDL_outputFunc(RDL_ERROR, "Rings must start at 1.\n");
-              error = 1;
-              break;
-            }
             if (last_ring) {
               if (ring_position_counter != graph->cycles[last_ring-1]->weight) {
                 RDL_outputFunc(RDL_ERROR, "last ring %u wasn't filled up!\n", last_ring);
@@ -187,9 +182,6 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
               }
             }
 
-            if (error) {
-              break;
-            }
             ring_position_counter = 0;
             graph->cycles[ring-1] = RDL_alloc(1, sizeof(**graph->cycles));
             if (!graph->cycles[ring - 1]) {
@@ -234,9 +226,6 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
     }
   }
 
-  if (!stage) {
-    error = 1;
-  }
   if (!error && graph->nof_cycles != UINT_MAX) {
     if (ring_counter != graph->nof_cycles) {
       RDL_outputFunc(RDL_ERROR, "mismatch between number of cycles!\n");
@@ -261,9 +250,7 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
     graph = NULL;
   }
 
-  if (ferror(infile)) { error = 1; RDL_dimacsGraph_delete(graph); graph = NULL; }
   fclose(infile);
-  infile = NULL;
 
   if (!error) {
     if (graph->cycles) {
@@ -280,15 +267,11 @@ RDL_DimacsGraph* RDL_dimacsGraph_read(const char* filename)
         for (edge_idx = 0; edge_idx < graph->cycles[ring_idx]->weight; ++edge_idx) {
           edge[0] = graph->cycles[ring_idx]->edges[edge_idx][0];
           edge[1] = graph->cycles[ring_idx]->edges[edge_idx][1];
-          found_eidx = -1;
           for (eidx = 0; eidx < graph->nof_edges; ++eidx) {
             if ((graph->edges[eidx][0] == edge[0]&& graph->edges[eidx][1] == edge[1])
                 || (graph->edges[eidx][0] == edge[1] && graph->edges[eidx][1] == edge[0])) {
               found_eidx = eidx;
             }
-          }
-          if (found_eidx < 0) {
-            goto fail;
           }
           graph->sorted_cycles[ring_idx][found_eidx] = 1;
         }
