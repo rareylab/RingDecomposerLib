@@ -116,7 +116,7 @@ static char *RDL_findPrototype(unsigned r, unsigned y, unsigned z, unsigned x,
   return proto;
 }
 
-/** fills the cycle-family data structure for an odd or even cycle */
+/** Adds an odd family when x == UINT_MAX, otherwise an even family. */
 static int RDL_addFamily(unsigned r, unsigned y, unsigned z, unsigned x,
     RDL_graph *gra, RDL_sPathInfo *spi, RDL_cfURF *rc)
 {
