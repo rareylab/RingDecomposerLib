@@ -311,50 +311,6 @@ static void RDL_findEdges(char *edges, char *visited, RDL_cfam *RCF,
   }
 }
 
-/** Checks if the RCFs with indices idx1 and idx2 share at least one edge.
-returns 1 if yes and 0 otherwise. */
-int RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *graph,
-                    RDL_sPathInfo *spi)
-{
-  char *edges1 = NULL;
-  char *edges2 = NULL; /*arrays of {0,1}^m that can store a set of edges with entries
-  being 1 if the edge is contained and 0 otherwise*/
-  char *visited = NULL;
-  unsigned i;
-  char result = 0;
-  edges1 = RDL_alloc(graph->E, sizeof(*edges1));
-  if (!edges1) {
-    goto fail;
-  }
-  edges2 = RDL_alloc(graph->E, sizeof(*edges2));
-  if (!edges2) {
-    goto fail;
-  }
-  visited = RDL_alloc(graph->V, sizeof(*visited));
-  if (!visited) {
-    goto fail;
-  }
-
-  RDL_findEdges(edges1, visited, RCFs->fams[idx1], graph, spi);
-  RDL_findEdges(edges2, visited, RCFs->fams[idx2], graph, spi);
-
-  for(i=0; i<graph->E; ++i)
-  {
-    if(edges1[i] == 1 && edges2[i] == 1)
-    {
-      result = 1;
-      break;
-    }
-  }
-  free(edges1);
-  free(edges2);
-  free(visited);
-  return result;
-fail:
-  free(edges1); free(edges2); free(visited);
-  return -1;
-}
-
 static int make_edge_list(unsigned **edge_list, unsigned *edge_list_size,
     char *edges, char *visited, RDL_graph *graph, RDL_cfam *rcf,
     RDL_sPathInfo *spi)
