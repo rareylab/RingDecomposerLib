@@ -243,8 +243,6 @@ int RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
     free(alreadyInURF[i]);
   }
   free(alreadyInURF);
-  uInfo->URFs=URFs;
-  uInfo->nofCFsPerURF = nofRCFs;
   return 1;
 fail:
   RDL_delete2DCharArray(alreadyInURF, uInfo->nofWeights);

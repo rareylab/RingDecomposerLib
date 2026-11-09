@@ -283,8 +283,6 @@ RDL_BCCGraph* RDL_tarjanBCC(const RDL_graph* graph)
     }
   }
 
-  result->complete_graph = graph;
-
   result->nof_bcc = nof_nontrivial_bcc;
   result->bcc_graphs = RDL_alloc(nof_nontrivial_bcc, sizeof(*result->bcc_graphs));
   if (!result->bcc_graphs) {
@@ -342,8 +340,6 @@ RDL_BCCGraph* RDL_tarjanBCC(const RDL_graph* graph)
     result->node_from_bcc_mapping[i] = NULL;
     result->nof_nodes_per_bcc[i] = 0;
   }
-
-  result->nof_bcc = nof_nontrivial_bcc;
 
   for (i = 0; i < graph->E; ++i) {
     curr_bcc = bcc[i];
