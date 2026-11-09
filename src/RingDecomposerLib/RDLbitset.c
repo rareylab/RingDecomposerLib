@@ -128,14 +128,16 @@ unsigned char RDL_bitset_test(unsigned char* bitset, unsigned pos)
 unsigned *RDL_bitset_to_array(const char *bitset, unsigned size,
     const unsigned *mapping, unsigned *count)
 {
-  unsigned i, next = 0;
+  unsigned i, count_value = 0, next = 0;
   unsigned *result;
 
-  *count = 0;
   for (i = 0; i < size; ++i) {
-    *count += bitset[i] != 0;
+    count_value += bitset[i] != 0;
   }
-  result = RDL_alloc((size_t)*count + 1, sizeof(*result));
+  if (count) {
+    *count = count_value;
+  }
+  result = RDL_alloc((size_t)count_value + 1, sizeof(*result));
   if (!result) {
     return NULL;
   }

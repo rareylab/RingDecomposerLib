@@ -339,9 +339,10 @@ static void RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
  * gives an array of indices of nodes that are contained in the URF with the
  * given index. Array is terminated by UINT_MAX
  */
-static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index)
+static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned i, nofFams, count, bcc_index, internal_index;
+  unsigned i, nofFams, bcc_index, internal_index;
   char *atoms = NULL, *visited = NULL;
   RDL_node *result;
   const RDL_graph* graph;
@@ -362,7 +363,7 @@ static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index)
   }
 
   result = RDL_bitset_to_array(atoms, graph->V,
-      data->bccGraphs->node_from_bcc_mapping[bcc_index], &count);
+      data->bccGraphs->node_from_bcc_mapping[bcc_index], count);
   free(atoms);
   free(visited);
   return result;
@@ -376,9 +377,10 @@ fail:
  * gives an array of indices of nodes that are contained in the RRF with the
  * given index. Array is terminated by UINT_MAX
  */
-static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
+static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned count, bcc_index,
+  unsigned bcc_index,
       urf_internal_index, rcf_internal_index, urf_index;
   char *atoms = NULL, *visited = NULL;
   RDL_node *result;
@@ -400,7 +402,7 @@ static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
       atoms, visited);
 
   result = RDL_bitset_to_array(atoms, graph->V,
-      data->bccGraphs->node_from_bcc_mapping[bcc_index], &count);
+      data->bccGraphs->node_from_bcc_mapping[bcc_index], count);
   free(atoms);
   free(visited);
   return result;
@@ -581,9 +583,10 @@ static void RDL_getEdges_internal(const RDL_data *data,
  * gives an array of indices of edges that are contained in the URF with the
  * given index. Array is terminated by UINT_MAX
  */
-static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
+static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned i, nofFams, count, bcc_index, internal_index;
+  unsigned i, nofFams, bcc_index, internal_index;
   char *edges = NULL, *visited = NULL;
   unsigned *result;
   const RDL_graph* graph;
@@ -605,7 +608,7 @@ static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
   }
 
   result = RDL_bitset_to_array(edges, graph->E,
-      data->bccGraphs->edge_from_bcc_mapping[bcc_index], &count);
+      data->bccGraphs->edge_from_bcc_mapping[bcc_index], count);
   free(edges);
   free(visited);
   return result;
@@ -619,9 +622,10 @@ fail:
  * gives an array of indices of edges that are contained in the RCF with the
  * given index. Array is terminated by UINT_MAX
  */
-static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
+static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned count, urf_index, bcc_index,
+  unsigned urf_index, bcc_index,
       urf_internal_index, rcf_internal_index;
   char *edges = NULL, *visited = NULL;
   unsigned *result;
@@ -643,7 +647,7 @@ static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
       rcf_internal_index, edges, visited);
 
   result = RDL_bitset_to_array(edges, graph->E,
-      data->bccGraphs->edge_from_bcc_mapping[bcc_index], &count);
+      data->bccGraphs->edge_from_bcc_mapping[bcc_index], count);
   free(edges);
   free(visited);
   return result;
@@ -660,11 +664,11 @@ static unsigned *RDL_giveURF(const RDL_data *data, unsigned index, char mode)
   unsigned *result;
   if(mode == 'a')
   {
-    result = RDL_getNodesURF(data, index);
+    result = RDL_getNodesURF(data, index, NULL);
   }
   else if(mode == 'b')
   {
-    result = RDL_getEdgesURF(data, index);
+    result = RDL_getEdgesURF(data, index, NULL);
   }
   else
   {
@@ -683,11 +687,11 @@ static unsigned *RDL_giveRCF(const RDL_data *data, unsigned index, char mode)
   unsigned *result;
   if(mode == 'a')
   {
-    result = RDL_getNodesRCF(data, index);
+    result = RDL_getNodesRCF(data, index, NULL);
   }
   else if(mode == 'b')
   {
-    result = RDL_getEdgesRCF(data, index);
+    result = RDL_getEdgesRCF(data, index, NULL);
   }
   else
   {
@@ -703,7 +707,7 @@ static unsigned *RDL_giveRCF(const RDL_data *data, unsigned index, char mode)
 /* public, function for retrieving nodes in an URF */
 unsigned RDL_getNodesForURF(const RDL_data *data, unsigned index, RDL_node **ptr)
 {
-  unsigned i;
+  unsigned count;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
@@ -717,21 +721,18 @@ unsigned RDL_getNodesForURF(const RDL_data *data, unsigned index, RDL_node **ptr
     return RDL_INVALID_RESULT;
   }
 
-  (*ptr) = RDL_getNodesURF(data, index);
+  (*ptr) = RDL_getNodesURF(data, index, &count);
 
   if (!*ptr) {
     return RDL_INVALID_RESULT;
   }
-  for (i = 0; (*ptr)[i] < UINT_MAX; ++i) {
-    ;
-  } /*counts the number of atoms*/
-  return i;
+  return count;
 }
 
 /* public, function for retrieving nodes in an RCF */
 unsigned RDL_getNodesForRCF(const RDL_data *data, unsigned index, RDL_node **ptr)
 {
-  unsigned i;
+  unsigned count;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
@@ -745,32 +746,25 @@ unsigned RDL_getNodesForRCF(const RDL_data *data, unsigned index, RDL_node **ptr
     return RDL_INVALID_RESULT;
   }
 
-  (*ptr) = RDL_getNodesRCF(data, index);
+  (*ptr) = RDL_getNodesRCF(data, index, &count);
 
   if (!*ptr) {
     return RDL_INVALID_RESULT;
   }
-  for (i = 0; (*ptr)[i] < UINT_MAX; ++i) {
-    ;
-  } /*counts the number of atoms*/
-  return i;
+  return count;
 }
 
 static RDL_edge *RDL_mapEdgeIndices(const RDL_data *data,
-    const unsigned *edgeIndices, unsigned *count)
+    const unsigned *edgeIndices, unsigned count)
 {
   unsigned i;
   RDL_edge *result;
 
-  *count = 0;
-  while (edgeIndices[*count] != UINT_MAX) {
-    ++*count;
-  }
-  result = RDL_alloc(*count, sizeof(*result));
+  result = RDL_alloc(count, sizeof(*result));
   if (!result) {
     return NULL;
   }
-  for (i = 0; i < *count; ++i) {
+  for (i = 0; i < count; ++i) {
     result[i][0] = data->graph->edges[edgeIndices[i]][0];
     result[i][1] = data->graph->edges[edgeIndices[i]][1];
   }
@@ -795,11 +789,11 @@ unsigned RDL_getEdgesForURF(const RDL_data *data, unsigned index, RDL_edge **ptr
     return RDL_INVALID_RESULT;
   }
 
-  edgeIndices = RDL_getEdgesURF(data, index);
+  edgeIndices = RDL_getEdgesURF(data, index, &count);
   if (!edgeIndices) {
     goto fail;
   }
-  *ptr = RDL_mapEdgeIndices(data, edgeIndices, &count);
+  *ptr = RDL_mapEdgeIndices(data, edgeIndices, count);
   free(edgeIndices);
   if (!*ptr) {
     goto fail;
@@ -829,11 +823,11 @@ unsigned RDL_getEdgesForRCF(const RDL_data *data, unsigned index, RDL_edge **ptr
     return RDL_INVALID_RESULT;
   }
 
-  edgeIndices = RDL_getEdgesRCF(data, index);
+  edgeIndices = RDL_getEdgesRCF(data, index, &count);
   if (!edgeIndices) {
     goto fail;
   }
-  *ptr = RDL_mapEdgeIndices(data, edgeIndices, &count);
+  *ptr = RDL_mapEdgeIndices(data, edgeIndices, count);
   free(edgeIndices);
   if (!*ptr) {
     goto fail;
@@ -891,7 +885,7 @@ object. The array ends with a terminating UINT_MAX on its last position and has
 to be deallocated with 'free()'
 */
 static unsigned *RDL_listFamilies(const RDL_data *data, unsigned object,
-    char mode, char family)
+    char mode, char family, unsigned *count)
 {
   unsigned *result = NULL;
   void *resized;
@@ -996,6 +990,7 @@ static unsigned *RDL_listFamilies(const RDL_data *data, unsigned object,
   }
 
   result[nextfree] = UINT_MAX;
+  *count = nextfree;
   return result;
 fail:
   free(result);
@@ -1007,7 +1002,7 @@ static unsigned RDL_getFamiliesContainingNode_internal(
     const RDL_data *data, RDL_node object, unsigned **ptr,
     char family)
 {
-  unsigned i;
+  unsigned count;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
@@ -1026,15 +1021,12 @@ static unsigned RDL_getFamiliesContainingNode_internal(
     return 0;
   }
 
-  *ptr = RDL_listFamilies(data, object, 'a', family);
+  *ptr = RDL_listFamilies(data, object, 'a', family, &count);
 
   if (!*ptr) {
     return RDL_INVALID_RESULT;
   }
-  for (i = 0; (*ptr)[i] < UINT_MAX; ++i) {
-    ;
-  }
-  return i;
+  return count;
 }
 
 /* public, get the RCF indices with this node */
@@ -1056,7 +1048,7 @@ static unsigned RDL_getFamiliesContainingEdge_internal(
     const RDL_data *data, RDL_node node1, RDL_node node2, unsigned **ptr,
     char family)
 {
-  unsigned i, edge;
+  unsigned count, edge;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
@@ -1084,15 +1076,12 @@ static unsigned RDL_getFamiliesContainingEdge_internal(
     return 0;
   }
 
-  *ptr = RDL_listFamilies(data, edge, 'b', family);
+  *ptr = RDL_listFamilies(data, edge, 'b', family, &count);
 
   if (!*ptr) {
     return RDL_INVALID_RESULT;
   }
-  for (i = 0; (*ptr)[i] < UINT_MAX; ++i) {
-    ;
-  }
-  return i;
+  return count;
 }
 
 
