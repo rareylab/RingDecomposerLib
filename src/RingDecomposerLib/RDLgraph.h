@@ -60,8 +60,8 @@ void RDL_deleteGraph(RDL_graph *gra);
 the calculation of CFs). It that case the degree is the OUT-degree only and the
 array edges is not used. */
 
-/** adds a directed edge to the graph. */
-void RDL_addEdge(RDL_graph *, unsigned from, unsigned to);
+/** Adds a directed edge; returns 1 on success, 0 on allocation failure. */
+int RDL_addEdge(RDL_graph *, unsigned from, unsigned to);
 
 /** returns 1 if the vertex i is adjacent to j in the graph, 0 otherwise. */
 int RDL_isAdj(const RDL_graph *, unsigned i, unsigned j);
@@ -70,8 +70,8 @@ int RDL_isAdj(const RDL_graph *, unsigned i, unsigned j);
     graph is undirected) */
 void RDL_printGraph(const RDL_graph *graph);
 
-/* checks if the graph is connected */
-char RDL_checkGraphConnected(const RDL_graph *gra);
+/* Returns 1 if connected, 0 if disconnected, -1 on allocation failure. */
+int RDL_checkGraphConnected(const RDL_graph *gra);
 
 /** Returns the index of the bond connecting the atoms 'from' and 'to' */
 unsigned RDL_edgeId(const RDL_graph *gra, unsigned from, unsigned to);

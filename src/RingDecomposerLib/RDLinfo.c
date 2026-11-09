@@ -24,94 +24,78 @@
 #include <stdlib.h>
 #include "RDLcycleFams.h"
 #include "RDLrelation.h"
+#include "RDLutility.h"
 
 /** allocates the matrices in urfInfo */
-RDL_URFinfo *RDL_initUrfInfo(RDL_cfURF *RCFs, RDL_graph *graph)
+RDL_URFinfo *RDL_initUrfInfo(RDL_cfURF *RCFs)
 {
-  RDL_URFinfo *urfInfo;
-  char ***URFrel;
-  unsigned numOfWeights = 1;
-  unsigned *numOfProtos;
-  unsigned i, j, k, currWeight, currIdx;
-  urfInfo = malloc(sizeof(*urfInfo));
-
-  /* count number of different weights occuring*/
-  currWeight = RCFs->fams[0]->weight;
-  for(i=0; i<RCFs->nofFams; ++i)
-  {
-    if(RCFs->fams[i]->weight != currWeight)
-    {
-      ++numOfWeights;
-      currWeight = RCFs->fams[i]->weight;
+  RDL_URFinfo *info = RDL_alloc(1, sizeof(*info));
+  unsigned i, w = 0;
+  if (!info) {
+    return NULL;
+  }
+  info->nofWeights = 1;
+  for (i = 1; i < RCFs->nofFams; ++i) {
+    if (RCFs->fams[i]->weight != RCFs->fams[i - 1]->weight) {
+      ++info->nofWeights;
     }
   }
-
-  /* for each weight count number of different prototypes */
-  numOfProtos = malloc(numOfWeights * sizeof(*numOfProtos));
-  for(i=0; i<numOfWeights; ++i)
-  {
-    numOfProtos[i] = 0;
+  info->nofProtos = RDL_alloc(info->nofWeights, sizeof(*info->nofProtos));
+  info->URFrel = RDL_alloc(info->nofWeights, sizeof(*info->URFrel));
+  if (!info->nofProtos || !info->URFrel) {
+    goto fail;
   }
-  currWeight = RCFs->fams[0]->weight;
-  currIdx = 0;
-  for(i=0; i<RCFs->nofFams; ++i)
-  {
-    if(RCFs->fams[i]->weight != currWeight)
-    {
-      ++currIdx;
-      currWeight = RCFs->fams[i]->weight;
+  for (i = 0; i < RCFs->nofFams; ++i) {
+    if (i && RCFs->fams[i]->weight != RCFs->fams[i - 1]->weight) {
+      ++w;
     }
-    ++numOfProtos[currIdx];
+    ++info->nofProtos[w];
   }
-
-   /*allocate everything*/
-  URFrel = malloc(numOfWeights * sizeof(*URFrel));
-  for(i=0; i<numOfWeights; ++i)
-  {
-    URFrel[i] = malloc(numOfProtos[i] * sizeof(*URFrel[i]));
-    *URFrel[i] = malloc(numOfProtos[i] * numOfProtos[i] * sizeof(**URFrel[i]));
-    for(j=1; j<numOfProtos[i]; ++j)
-    {
-      URFrel[i][j] = URFrel[i][j-1] + numOfProtos[i];
+  for (i = 0; i < info->nofWeights; ++i) {
+    info->URFrel[i] = RDL_alloc2DCharArray(info->nofProtos[i], info->nofProtos[i]);
+    if (!info->URFrel[i]) {
+      goto fail;
     }
   }
-
-  /*initialize with zeros*/
-  for(i=0; i<numOfWeights; ++i)
-  {
-    for(j=0; j<numOfProtos[i]; ++j)
-    {
-      for(k=0; k<numOfProtos[i]; ++k)
-      {
-        URFrel[i][j][k] = 0;
-      }
-    }
-  }
-
-  urfInfo->nofWeights = numOfWeights;
-  urfInfo->nofProtos = numOfProtos;
-  urfInfo->URFrel = URFrel;
-
-  return urfInfo;
+  return info;
+fail:
+  RDL_deleteURFInfo(info);
+  return NULL;
 }
 
 void RDL_deleteURFInfo(RDL_URFinfo *uInfo)
 {
   unsigned i;
-  for(i=0; i<uInfo->nofWeights; ++i)
-  {
-    free(uInfo->URFrel[i][0]);
-    free(uInfo->URFrel[i]);
+  if (!uInfo) {
+    return;
   }
-  free(uInfo->URFrel);
-  free(uInfo->nofProtos);
-  for(i=0; i<uInfo->nofURFs; ++i)
+  for(i=0; uInfo->URFrel && i<uInfo->nofWeights; ++i)
   {
-    free(uInfo->URFs[i]);
+    RDL_delete2DCharArray(uInfo->URFrel[i], uInfo->nofProtos ? uInfo->nofProtos[i] : 0);
   }
-  free(uInfo->URFs);
-  free(uInfo->nofCFsPerURF);
-  free(uInfo);
+  RDL_free(uInfo->URFrel);
+  RDL_free(uInfo->nofProtos);
+  for(i=0; uInfo->URFs && i<uInfo->nofURFs; ++i)
+  {
+    RDL_free(uInfo->URFs[i]);
+  }
+  RDL_free(uInfo->URFs);
+  RDL_free(uInfo->nofCFsPerURF);
+  RDL_free(uInfo);
+}
+
+static char **RDL_allocProtoFlags(RDL_URFinfo *info)
+{
+  unsigned i;
+  char **flags = RDL_alloc(info->nofWeights, sizeof(*flags));
+  if (!flags) {
+    return NULL;
+  }
+  for (i = 0; i < info->nofWeights; ++i) {
+    flags[i] = RDL_alloc(info->nofProtos[i], sizeof(**flags));
+    if (!flags[i]) { RDL_delete2DCharArray(flags, info->nofWeights); return NULL; }
+  }
+  return flags;
 }
 
 /** returns the number of URFs. */
@@ -122,10 +106,9 @@ unsigned RDL_countURFs(RDL_URFinfo *uInfo)
                         part of a URF*/
   char increase;
 
-  alreadyInURF = malloc(uInfo->nofWeights * sizeof(*alreadyInURF));
-  for(i=0; i<uInfo->nofWeights; ++i)
-  {
-    alreadyInURF[i] = malloc(uInfo->nofProtos[i] * sizeof(*alreadyInURF[i]));
+  alreadyInURF = RDL_allocProtoFlags(uInfo);
+  if (!alreadyInURF) {
+    return RDL_INVALID_RESULT;
   }
   for(i=0; i<uInfo->nofWeights; ++i)
   {
@@ -162,9 +145,9 @@ unsigned RDL_countURFs(RDL_URFinfo *uInfo)
 
   for(i=0; i<uInfo->nofWeights; ++i)
   {
-    free(alreadyInURF[i]);
+    RDL_free(alreadyInURF[i]);
   }
-  free(alreadyInURF);
+  RDL_free(alreadyInURF);
   return URFRelCount;
 }
 
@@ -183,22 +166,20 @@ unsigned RDL_idxWeight(RDL_URFinfo *uInfo, unsigned weight, unsigned j)
 /** adds the CF with the index 'RCFIdx' to the URF with the index 'URFIdx'.
 sNeeds the number of RCFs already in the URF as third parameter
 'previouslyAlloced' */
-void RDL_addRCFtoURF(unsigned RCFIdx, unsigned URFIdx, unsigned previouslyAlloced,
+int RDL_addRCFtoURF(unsigned RCFIdx, unsigned URFIdx, unsigned previouslyAlloced,
                      RDL_cfam ***URFs, RDL_cfURF *CFs)
 {
-  if(previouslyAlloced == 0)
-  {
-    URFs[URFIdx] = malloc((previouslyAlloced+1) * sizeof(*URFs[URFIdx]));
+  RDL_cfam **families = RDL_resize(URFs[URFIdx], (size_t)previouslyAlloced + 1,
+                                  sizeof(*families));
+  if (!families) {
+    return 0;
   }
-  else
-  {
-    URFs[URFIdx] = realloc(URFs[URFIdx], (previouslyAlloced+1) *
-                           sizeof(*URFs[URFIdx]));
-  }
-  URFs[URFIdx][previouslyAlloced] =  CFs->fams[RCFIdx];
+  URFs[URFIdx] = families;
+  families[previouslyAlloced] = CFs->fams[RCFIdx];
+  return 1;
 }
 
-void RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
+int RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
 {
   RDL_cfam ***URFs;
   unsigned *nofRCFs;
@@ -207,10 +188,9 @@ void RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
   char **alreadyInURF; /*for each weight: an array storing if a RCF is already
                         part of a URF*/
 
-  alreadyInURF = malloc(uInfo->nofWeights * sizeof(*alreadyInURF));
-  for(i=0; i<uInfo->nofWeights; ++i)
-  {
-    alreadyInURF[i] = malloc(uInfo->nofProtos[i] * sizeof(*alreadyInURF[i]));
+  alreadyInURF = RDL_allocProtoFlags(uInfo);
+  if (!alreadyInURF) {
+    return 0;
   }
   for(i=0; i<uInfo->nofWeights; ++i)
   {
@@ -220,8 +200,13 @@ void RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
     }
   }
 
-  URFs = malloc(uInfo->nofURFs * sizeof(*URFs));
-  nofRCFs = malloc(uInfo->nofURFs * sizeof(*nofRCFs));
+  URFs = RDL_alloc(uInfo->nofURFs, sizeof(*URFs));
+  nofRCFs = RDL_alloc(uInfo->nofURFs, sizeof(*nofRCFs));
+  uInfo->URFs = URFs;
+  uInfo->nofCFsPerURF = nofRCFs;
+  if (!URFs || !nofRCFs) {
+    goto fail;
+  }
   for(i=0; i<uInfo->nofURFs; ++i)
   {
     nofRCFs[i] = 0;
@@ -239,8 +224,10 @@ void RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
           if(uInfo->URFrel[i][j][k] == 1)
           {
             /*add to current URF the CFs with the given Idx*/
-            RDL_addRCFtoURF(RDL_idxWeight(uInfo,i,k),currURFIdx,
-                            nofRCFs[currURFIdx],URFs,CFs);
+            if (!RDL_addRCFtoURF(RDL_idxWeight(uInfo, i, k), currURFIdx, nofRCFs[currURFIdx], URFs,
+                                 CFs)) {
+              goto fail;
+            }
             ++nofRCFs[currURFIdx];
             alreadyInURF[i][k] = 1;
           }
@@ -252,20 +239,33 @@ void RDL_fillURFs(RDL_URFinfo *uInfo, RDL_cfURF *CFs)
 
   for(i=0; i<uInfo->nofWeights; ++i)
   {
-    free(alreadyInURF[i]);
+    RDL_free(alreadyInURF[i]);
   }
-  free(alreadyInURF);
-  uInfo->URFs=URFs;
-  uInfo->nofCFsPerURF = nofRCFs;
+  RDL_free(alreadyInURF);
+  return 1;
+fail:
+  RDL_delete2DCharArray(alreadyInURF, uInfo->nofWeights);
+  return 0;
 }
 
 RDL_URFinfo *RDL_checkURFRelation(RDL_cfURF *RCFs, RDL_graph *graph, RDL_sPathInfo* spi)
 {
-  RDL_URFinfo *uInfo = RDL_initUrfInfo(RCFs, graph);
-  RDL_findRelations(RCFs, graph, uInfo, spi);
+  RDL_URFinfo *uInfo = RDL_initUrfInfo(RCFs);
+  if (!uInfo) {
+    return NULL;
+  }
+  if (!RDL_findRelations(RCFs, graph, uInfo, spi)) {
+    goto fail;
+  }
 
   uInfo->nofURFs = RDL_countURFs(uInfo);
-  RDL_fillURFs(uInfo, RCFs);
+  if (uInfo->nofURFs == RDL_INVALID_RESULT) { uInfo->nofURFs = 0; goto fail; }
+  if (!RDL_fillURFs(uInfo, RCFs)) {
+    goto fail;
+  }
   return uInfo;
+fail:
+  RDL_deleteURFInfo(uInfo);
+  return NULL;
 }
 

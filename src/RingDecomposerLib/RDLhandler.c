@@ -35,6 +35,7 @@
 #include "RDLinfo.h"
 #include "RDLdataStruct.h"
 #include "RDLtarjan.h"
+#include "RDLutility.h"
 
 static void RDL_findIndegree(unsigned a, unsigned b,
     unsigned *indegree, const RDL_sPathInfo *spi)
@@ -65,12 +66,22 @@ double RDL_countPaths(unsigned a, unsigned b,
     unsigned V, const RDL_sPathInfo *spi)
 {
   unsigned i, curr, vertex, empty_end=0;
-  unsigned *indegree, *empty_set;
-  double *nof_paths, result;
+  unsigned *indegree = NULL, *empty_set = NULL;
+  double *nof_paths = NULL, result;
 
-  nof_paths = malloc(V * sizeof(*nof_paths));
-  indegree = malloc(V * sizeof(*indegree));
-  empty_set = malloc(V * sizeof(*empty_set));
+  nof_paths = RDL_alloc(V, sizeof(*nof_paths));
+
+  if (!nof_paths) {
+    goto fail;
+  }
+  indegree = RDL_alloc(V, sizeof(*indegree));
+  if (!indegree) {
+    goto fail;
+  }
+  empty_set = RDL_alloc(V, sizeof(*empty_set));
+  if (!empty_set) {
+    goto fail;
+  }
   for (i = 0; i < V; ++i) {
     nof_paths[i] = 0.0;
     indegree[i] = UINT_MAX;
@@ -90,9 +101,9 @@ double RDL_countPaths(unsigned a, unsigned b,
     RDL_outputFunc(RDL_ERROR, "invalid topological sort!");
     /* should never happen */
     assert(0);
-    free(nof_paths);
-    free(indegree);
-    free(empty_set);
+    RDL_free(nof_paths);
+    RDL_free(indegree);
+    RDL_free(empty_set);
     return DBL_MAX;
   }
 
@@ -113,11 +124,14 @@ double RDL_countPaths(unsigned a, unsigned b,
 
   result = nof_paths[a];
 
-  free(nof_paths);
-  free(indegree);
-  free(empty_set);
+  RDL_free(nof_paths);
+  RDL_free(indegree);
+  RDL_free(empty_set);
 
   return result;
+fail:
+  RDL_free(nof_paths); RDL_free(indegree); RDL_free(empty_set);
+  return RDL_INVALID_RC_COUNT;
 }
 
 
@@ -190,12 +204,13 @@ typedef struct RDL_lpStackElement {
 static void RDL_lpStackElement_delete(RDL_lpStackElement* element)
 {
   if (element->split_copy) {
-    free(element->split_copy);
+    RDL_free(element->split_copy);
   }
-  free(element);
+  RDL_free(element);
 }
 
 static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it);
+static void RDL_deletePathIterator(RDL_pathIterator *it);
 
 /** just like the function "List_Paths" by Vismara: finds all shortest paths
 between r and p recursively and writes them into the array "paths". 'mode'
@@ -204,11 +219,17 @@ static RDL_pathIterator* RDL_listPaths(unsigned r, unsigned p,
                    char mode, const RDL_graph *gra, const RDL_sPathInfo *spi)
 {
   unsigned number;
-  RDL_lpStackElement *new_element;
+  RDL_lpStackElement *new_element = NULL;
 
-  RDL_pathIterator *it = malloc(sizeof(*it));
+  RDL_pathIterator *it = RDL_alloc(1, sizeof(*it));
+  if (!it) {
+    return NULL;
+  }
 
   it->stack = RDL_stack_new();
+  if (!it->stack) {
+    goto fail;
+  }
   it->mode = mode;
 
   if(mode == 'a') {
@@ -218,50 +239,63 @@ static RDL_pathIterator* RDL_listPaths(unsigned r, unsigned p,
     number = gra->E;
   }
   it->compressed_number = RDL_bitset_init(&it->compressed_path, number);
+  if (it->compressed_number == RDL_INVALID_RESULT) {
+    goto fail;
+  }
 
   it->spi = spi;
   it->gra = gra;
   it->end = 0;
-  new_element = malloc(sizeof(*new_element));
+  new_element = RDL_alloc(1, sizeof(*new_element));
+  if (!new_element) {
+    goto fail;
+  }
   new_element->r = r;
   new_element->p = p;
   new_element->ai_index = 0;
   new_element->split_copy = NULL;
 
-  RDL_stack_push(it->stack, new_element);
+  if (!RDL_stack_push(it->stack, new_element)) {
+    goto fail;
+  }
+  new_element = NULL;
 
   if (!RDL_pathIteratorNext(it)) {
-    RDL_outputFunc(RDL_ERROR, "Failed iterator initialization!\n");
-    /* should never happen */
-    assert(0);
-    return NULL;
+    goto fail;
   }
 
   return it;
+fail:
+  RDL_free(new_element);
+  RDL_deletePathIterator(it);
+  return NULL;
 }
 
 /* free path iterator */
 static void RDL_deletePathIterator(RDL_pathIterator *it)
 {
   RDL_lpStackElement *top;
+  if (!it) {
+    return;
+  }
   if (it->compressed_path) {
-    free(it->compressed_path);
+    RDL_free(it->compressed_path);
   }
   /* stack can be non-empty if premature terminating iteration */
-  while (!RDL_stack_empty(it->stack)) {
+  while (it->stack && !RDL_stack_empty(it->stack)) {
     top = RDL_stack_top(it->stack);
     RDL_lpStackElement_delete(top);
     RDL_stack_pop(it->stack);
   }
   RDL_stack_delete(it->stack);
-  free(it);
+  RDL_free(it);
 }
 
 /* move on to the next path */
 static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it)
 {
   unsigned vertex;
-  RDL_lpStackElement *new_element, *top;
+  RDL_lpStackElement *new_element = NULL, *top;
 
   if (it->end) {
     RDL_outputFunc(RDL_ERROR, "You tried to next an ended iterator!\n");
@@ -290,7 +324,10 @@ static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it)
       vertex = it->spi->dPaths[top->r]->adjList[top->p][top->ai_index][0];
 
       if (top->ai_index == 0) {
-        top->split_copy = malloc(it->compressed_number * sizeof(*top->split_copy));
+        top->split_copy = RDL_alloc(it->compressed_number, sizeof(*top->split_copy));
+        if (!top->split_copy) {
+          goto fail;
+        }
         /*make a copy of the path so far*/
         memcpy(top->split_copy, it->compressed_path,
             it->compressed_number * sizeof(*top->split_copy));
@@ -306,7 +343,11 @@ static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it)
         RDL_bitset_set(it->compressed_path, RDL_edgeId(it->gra,top->p,vertex));
       }
 
-      new_element = malloc(sizeof(*new_element));
+      new_element = RDL_alloc(1, sizeof(*new_element));
+
+      if (!new_element) {
+        goto fail;
+      }
       new_element->r = top->r;
       new_element->p = vertex;
       new_element->ai_index = 0;
@@ -317,7 +358,10 @@ static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it)
         RDL_lpStackElement_delete(top);
       }
 
-      RDL_stack_push(it->stack, new_element);
+      if (!RDL_stack_push(it->stack, new_element)) {
+        goto fail;
+      }
+      new_element = NULL;
     }
     else/*not a split*/
     {
@@ -332,6 +376,10 @@ static RDL_pathIterator* RDL_pathIteratorNext(RDL_pathIterator *it)
   }
 
   return it;
+fail:
+  RDL_free(new_element);
+  it->end = 1;
+  return NULL;
 }
 
 /* this iterator containes the COMPLETE state for RC enumeration */
@@ -407,14 +455,22 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
   /* first call */
   if (it->it2 == NULL) {
     it->it2 = RDL_listPaths(cfam->r, cfam->q, it->mode, gra, spi);
+    if (!it->it2) {
+      goto fail;
+    }
   }
   else {
     /* advance second iterator */
-    RDL_pathIteratorNext(it->it2);
+    if (!RDL_pathIteratorNext(it->it2)) {
+      goto fail;
+    }
   }
 
   if (it->it1 == NULL) {
     it->it1 = RDL_listPaths(cfam->r, cfam->p, it->mode, gra, spi);
+    if (!it->it1) {
+      goto fail;
+    }
   }
 
   /* if second iterator is at end, increment first */
@@ -422,11 +478,16 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
     /* do not increment first, if not possible! */
     if (!it->it1->end) {
       /* advance first iterator */
-      RDL_pathIteratorNext(it->it1);
+      if (!RDL_pathIteratorNext(it->it1)) {
+        goto fail;
+      }
 
       /* re initialize second iterator */
       RDL_deletePathIterator(it->it2);
       it->it2 = RDL_listPaths(cfam->r, cfam->q, it->mode, gra, spi);
+      if (!it->it2) {
+        goto fail;
+      }
     }
   }
 
@@ -450,15 +511,20 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
           else {
             number = it->data->bccGraphs->bcc_graphs[it->bcc_index]->E;
           }
-          free(it->compressed_cycle);
-          RDL_bitset_init(&it->compressed_cycle, number);
+          RDL_free(it->compressed_cycle);
+          it->compressed_cycle = NULL;
+          if (RDL_bitset_init(&it->compressed_cycle, number) == RDL_INVALID_RESULT) {
+            goto fail;
+          }
           /* reset all iterators */
           RDL_deletePathIterator(it->it1);
           it->it1 = NULL;
           RDL_deletePathIterator(it->it2);
           it->it2 = NULL;
           /* now try again with new RCF */
-          RDL_cycleIteratorNext(it);
+          if (!RDL_cycleIteratorNext(it)) {
+            goto fail;
+          }
         }
       }
       else {
@@ -471,7 +537,9 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
         RDL_deletePathIterator(it->it2);
         it->it2 = NULL;
         /* now try again with new RCF */
-        RDL_cycleIteratorNext(it);
+        if (!RDL_cycleIteratorNext(it)) {
+          goto fail;
+        }
       }
     }
     else {
@@ -483,7 +551,9 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
       RDL_deletePathIterator(it->it2);
       it->it2 = NULL;
       /* now try again with new RCF */
-      RDL_cycleIteratorNext(it);
+      if (!RDL_cycleIteratorNext(it)) {
+        goto fail;
+      }
     }
   }
   else {
@@ -492,13 +562,16 @@ RDL_cycleIterator* RDL_cycleIteratorNext(RDL_cycleIterator* it)
   }
 
   return it;
+fail:
+  it->end = 1;
+  return NULL;
 }
 
 /* construct an RDL_cycle from the compressed bitset */
 RDL_cycle* RDL_cycleIteratorGetCycle(RDL_cycleIterator* it)
 {
-  unsigned edgeCount = 0, j, mapped_edge, alloced = 64;
-  RDL_cycle* rdl_cycle;
+  unsigned edgeCount = 0, j, mapped_edge;
+  RDL_cycle* rdl_cycle = NULL;
 
   if (it == NULL) {
     RDL_outputFunc(RDL_ERROR, "Iterator is NULL!\n");
@@ -517,18 +590,26 @@ RDL_cycle* RDL_cycleIteratorGetCycle(RDL_cycleIterator* it)
     return NULL;
   }
 
-  rdl_cycle = malloc(sizeof(*rdl_cycle));
+  rdl_cycle = RDL_alloc(1, sizeof(*rdl_cycle));
 
-  rdl_cycle->edges = malloc(alloced * sizeof(*rdl_cycle->edges));
+  if (!rdl_cycle) {
+    goto fail;
+  }
+
+  for (j = 0; j < it->data->bccGraphs->bcc_graphs[it->bcc_index]->E; ++j) {
+    edgeCount += RDL_bitset_test(it->compressed_cycle, j);
+  }
+  rdl_cycle->edges = RDL_alloc(edgeCount, sizeof(*rdl_cycle->edges));
+
+  if (!rdl_cycle->edges) {
+    goto fail;
+  }
   rdl_cycle->urf = it->running_urf;
   rdl_cycle->rcf = it->running_rcf;
 
+  edgeCount = 0;
   for(j=0; j < it->data->bccGraphs->bcc_graphs[it->bcc_index]->E; ++j) {
     if(RDL_bitset_test(it->compressed_cycle, j)) {
-      if (edgeCount >= alloced) {
-        alloced *= 2;
-        rdl_cycle->edges = realloc(rdl_cycle->edges, alloced * sizeof(*rdl_cycle->edges));
-      }
       mapped_edge = it->data->bccGraphs->edge_from_bcc_mapping[it->bcc_index][j];
       rdl_cycle->edges[edgeCount][0] = it->data->graph->edges[mapped_edge][0];
       rdl_cycle->edges[edgeCount][1] = it->data->graph->edges[mapped_edge][1];
@@ -536,10 +617,13 @@ RDL_cycle* RDL_cycleIteratorGetCycle(RDL_cycleIterator* it)
     }
   }
 
-  rdl_cycle->edges = realloc(rdl_cycle->edges, edgeCount * sizeof(*rdl_cycle->edges));
+
   rdl_cycle->weight = edgeCount;
 
   return rdl_cycle;
+fail:
+  RDL_deleteCycle(rdl_cycle);
+  return NULL;
 }
 
 /* check if at end, NULL is at end */
@@ -553,6 +637,9 @@ int RDL_cycleIteratorAtEnd(RDL_cycleIterator* it)
 
 void RDL_deleteCycleIterator(RDL_cycleIterator* it)
 {
+  if (!it) {
+    return;
+  }
   if (it->it1) {
     RDL_deletePathIterator(it->it1);
   }
@@ -561,10 +648,10 @@ void RDL_deleteCycleIterator(RDL_cycleIterator* it)
   }
 
   if (it->compressed_cycle) {
-    free(it->compressed_cycle);
+    RDL_free(it->compressed_cycle);
   }
 
-  free(it);
+  RDL_free(it);
 }
 
 /* initialize cycle iterator */
@@ -583,7 +670,11 @@ RDL_cycleIterator* RDL_initCycleIterator(
   RDL_cycleIterator *it;
   const RDL_URFinfo *uInfo;
 
-  it = malloc(sizeof(*it));
+  it = RDL_alloc(1, sizeof(*it));
+
+  if (!it) {
+    goto fail;
+  }
 
   it->mode = mode;
   it->it1 = NULL;
@@ -603,7 +694,9 @@ RDL_cycleIterator* RDL_initCycleIterator(
   else {
     number = it->data->bccGraphs->bcc_graphs[bcc_index]->E;
   }
-  RDL_bitset_init(&it->compressed_cycle, number);
+  if (RDL_bitset_init(&it->compressed_cycle, number) == RDL_INVALID_RESULT) {
+    goto fail;
+  }
 
   it->bcc_index = bcc_index;
   it->bcc_index_max = bcc_index_max;
@@ -646,11 +739,12 @@ RDL_cycleIterator* RDL_initCycleIterator(
   it->running_rcf += rcf_index;
 
   if (!RDL_cycleIteratorNext(it)) {
-    RDL_outputFunc(RDL_ERROR, "Iterator initialization failed!\n");
-    assert(0);
-    return NULL;
+    goto fail;
   }
 
   return it;
+fail:
+  RDL_deleteCycleIterator(it);
+  return NULL;
 }
 

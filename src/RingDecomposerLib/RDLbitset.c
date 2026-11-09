@@ -20,8 +20,10 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <limits.h>
 
 #include "RDLbitset.h"
+#include "RDLutility.h"
 
 /* add two compressed cycles inplace */
 void RDL_bitset_xor_inplace(unsigned char* dst, unsigned const char* src, unsigned size)
@@ -66,8 +68,10 @@ unsigned RDL_bitset_init(unsigned char** compressed, unsigned size)
     ++new_size;
   }
 
-  *compressed = malloc(new_size * sizeof(**compressed));
-  memset(*compressed, 0, new_size * sizeof(**compressed));
+  *compressed = RDL_alloc(new_size, sizeof(**compressed));
+  if (!*compressed) {
+    return RDL_INVALID_RESULT;
+  }
 
   return new_size;
 }
@@ -79,6 +83,9 @@ unsigned RDL_bitset_compressed(unsigned char** compressed, const char* edges, un
 
   new_size = RDL_bitset_init(compressed, size);
 
+  if (new_size == RDL_INVALID_RESULT) {
+    return new_size;
+  }
   for (i = 0; i < size; ++i) {
     if (edges[i]) {
       RDL_bitset_set(*compressed, i);
@@ -115,4 +122,30 @@ void RDL_swap_columns(unsigned char** rows, unsigned nof_rows, unsigned col1, un
 unsigned char RDL_bitset_test(unsigned char* bitset, unsigned pos)
 {
   return (bitset[pos / BlockSize] >> (pos % BlockSize)) & 1;
+}
+
+/* Convert a byte-per-entry bitset to a UINT_MAX-terminated index array. */
+unsigned *RDL_bitset_to_array(const char *bitset, unsigned size,
+    const unsigned *mapping, unsigned *count)
+{
+  unsigned i, count_value = 0, next = 0;
+  unsigned *result;
+
+  for (i = 0; i < size; ++i) {
+    count_value += bitset[i] != 0;
+  }
+  if (count) {
+    *count = count_value;
+  }
+  result = RDL_alloc((size_t)count_value + 1, sizeof(*result));
+  if (!result) {
+    return NULL;
+  }
+  for (i = 0; i < size; ++i) {
+    if (bitset[i]) {
+      result[next++] = mapping ? mapping[i] : i;
+    }
+  }
+  result[next] = UINT_MAX;
+  return result;
 }

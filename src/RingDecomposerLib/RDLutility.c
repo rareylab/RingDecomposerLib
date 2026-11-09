@@ -24,16 +24,75 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef RDL_TEST_ALLOCATORS
+#include "tests/failure_alloc.h"
+#endif
 
 RDL_outputFunction RDL_outputFunc = RDL_writeNothing;
+
+/* Zero-length arrays still have a freeable, non-NULL representation. */
+void *RDL_alloc(size_t count, size_t size)
+{
+  void *result;
+  if (size && count > (size_t)-1 / size) {
+    RDL_outputFunc(RDL_ERROR, "Allocation size overflow.\n");
+    return NULL;
+  }
+#ifdef RDL_TEST_ALLOCATORS
+  result = audit_calloc(count ? count : 1, size ? size : 1);
+#else
+  result = calloc(count ? count : 1, size ? size : 1);
+#endif
+  if (!result) {
+    RDL_outputFunc(RDL_ERROR, "Memory allocation failed.\n");
+  }
+  return result;
+}
+
+void *RDL_resize(void *ptr, size_t count, size_t size)
+{
+  void *result;
+  if (size && count > (size_t)-1 / size) {
+    RDL_outputFunc(RDL_ERROR, "Allocation size overflow.\n");
+    return NULL;
+  }
+#ifdef RDL_TEST_ALLOCATORS
+  result = audit_realloc(ptr, (count ? count : 1) * (size ? size : 1));
+#else
+  result = realloc(ptr, (count ? count : 1) * (size ? size : 1));
+#endif
+  if (!result) {
+    RDL_outputFunc(RDL_ERROR, "Memory allocation failed.\n");
+  }
+  return result;
+}
+
+void RDL_free(void *ptr)
+{
+#ifdef RDL_TEST_ALLOCATORS
+  audit_free(ptr);
+#else
+  free(ptr);
+#endif
+}
 
 unsigned **RDL_alloc2DUIntArray(unsigned n, unsigned m)
 {
   unsigned i;
-  unsigned **arr = malloc(n * sizeof(*arr));
+  unsigned **arr = RDL_alloc(n, sizeof(*arr));
+  if (!arr) {
+    return NULL;
+  }
   for(i=0; i<n; ++i)
   {
-    arr[i] = malloc(m*sizeof(**arr));
+    arr[i] = RDL_alloc(m, sizeof(**arr));
+    if (!arr[i]) {
+      while (i) {
+        RDL_free(arr[--i]);
+      }
+      RDL_free(arr);
+      return NULL;
+    }
   }
   return arr;
 }
@@ -41,10 +100,20 @@ unsigned **RDL_alloc2DUIntArray(unsigned n, unsigned m)
 char **RDL_alloc2DCharArray(unsigned n, unsigned m)
 {
   unsigned i;
-  char **arr = malloc(n * sizeof(*arr));
+  char **arr = RDL_alloc(n, sizeof(*arr));
+  if (!arr) {
+    return NULL;
+  }
   for(i=0; i<n; ++i)
   {
-    arr[i] = malloc(m*sizeof(**arr));
+    arr[i] = RDL_alloc(m, sizeof(**arr));
+    if (!arr[i]) {
+      while (i) {
+        RDL_free(arr[--i]);
+      }
+      RDL_free(arr);
+      return NULL;
+    }
   }
   return arr;
 }
@@ -52,19 +121,25 @@ char **RDL_alloc2DCharArray(unsigned n, unsigned m)
 void RDL_delete2DUIntArray(unsigned **arr, unsigned n)
 {
   unsigned i;
-  for (i = 0; i < n; ++i) {
-    free(arr[i]);
+  if (!arr) {
+    return;
   }
-  free(arr);
+  for (i = 0; i < n; ++i) {
+    RDL_free(arr[i]);
+  }
+  RDL_free(arr);
 }
 
 void RDL_delete2DCharArray(char **arr, unsigned n)
 {
   unsigned i;
-  for (i = 0; i < n; ++i) {
-    free(arr[i]);
+  if (!arr) {
+    return;
   }
-  free(arr);
+  for (i = 0; i < n; ++i) {
+    RDL_free(arr[i]);
+  }
+  RDL_free(arr);
 }
 
 void RDL_print2DUIntArray(unsigned **arr, unsigned n, unsigned m)
@@ -100,12 +175,8 @@ void RDL_writeNothing(RDL_ERROR_LEVEL level, const char* fmt, ...)
 
 void RDL_writeToStderr(RDL_ERROR_LEVEL level, const char* fmt, ...)
 {
-  unsigned len;
-  char* new_fmt;
   char* specifier;
-
-  len = strlen(fmt);
-  len += 1 + 14;
+  va_list va;
 
   /* we don't need any output initialization, so skip */
   if (level == RDL_INITIALIZE_OUTPUT) {
@@ -126,13 +197,10 @@ void RDL_writeToStderr(RDL_ERROR_LEVEL level, const char* fmt, ...)
       specifier = "RDL_????";
   }
 
-  new_fmt = malloc(len * sizeof(*new_fmt));
-  sprintf(new_fmt, "%12s: %s", specifier, fmt);
+  fprintf(stderr, "%12s: ", specifier);
 
-  va_list va;
   va_start(va, fmt);
-  vfprintf(stderr, new_fmt, va);
+  vfprintf(stderr, fmt, va);
   va_end(va);
 
-  free(new_fmt);
 }

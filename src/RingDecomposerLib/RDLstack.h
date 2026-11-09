@@ -31,7 +31,8 @@ int RDL_stack_empty(RDL_stack* stack);
 
 void RDL_stack_pop(RDL_stack* stack);
 
-void RDL_stack_push(RDL_stack* stack, void* element);
+/* Returns 1 on success, 0 on allocation failure; failure preserves the stack. */
+int RDL_stack_push(RDL_stack* stack, void* element);
 
 void RDL_stack_delete(RDL_stack* stack);
 

@@ -4,14 +4,14 @@
  * Copyright (c) 2016
  * University of Hamburg, ZBH - Center for Bioinformatics
  * Niek Andresen, Florian Flachsenberg, Matthias Rarey
- * 
+ *
  * Please cite:
- * 
+ *
  * Kolodzik, A.; Urbaczek, S.; Rarey, M.
  * Unique Ring Families: A Chemically Meaningful Description
  * of Molecular Ring Topologies.
  * J. Chem. Inf. Model., 2012, 52 (8), pp 2013-2021
- * 
+ *
  * Flachsenberg, F.; Andresen, N.; Rarey, M.
  * RingDecomposerLib: An Open-Source Implementation of
  * Unique Ring Families and Other Cycle Bases.
@@ -50,7 +50,7 @@ const double RDL_INVALID_RC_COUNT = DBL_MAX;
 /* public, set the global output function */
 void RDL_setOutputFunction(RDL_outputFunction func)
 {
-  RDL_outputFunc = func;
+  RDL_outputFunc = func ? func : RDL_writeNothing;
 }
 
 /* public */
@@ -83,56 +83,61 @@ RDL_data *RDL_calculate(RDL_graph *gra)
     return NULL;
   }
 
-  data = malloc(sizeof(*data));
+  data = RDL_alloc(1, sizeof(*data));
+
+  if (!data) {
+    return NULL;
+  }
 
   /* FIRST STEP: TARJAN */
   data->bccGraphs = RDL_tarjanBCC(gra);
+  if (!data->bccGraphs) {
+    goto fail;
+  }
   data->nofURFs = 0;
   data->nofRCFs = 0;
 
   /* allocate result structures */
-  data->spiPerBCC = malloc(data->bccGraphs->nof_bcc * sizeof(*data->spiPerBCC));
-  data->CFsPerBCC = malloc(data->bccGraphs->nof_bcc * sizeof(*data->CFsPerBCC));
-  data->urfInfoPerBCC = malloc(data->bccGraphs->nof_bcc * sizeof(*data->urfInfoPerBCC));
-  data->nofURFsPerBCC = malloc(data->bccGraphs->nof_bcc * sizeof(*data->nofURFsPerBCC));
-  data->nofRCFsPerBCC = malloc(data->bccGraphs->nof_bcc * sizeof(*data->nofRCFsPerBCC));
+  data->spiPerBCC = RDL_alloc(data->bccGraphs->nof_bcc, sizeof(*data->spiPerBCC));
+  if (!data->spiPerBCC) {
+    goto fail;
+  }
+  data->CFsPerBCC = RDL_alloc(data->bccGraphs->nof_bcc, sizeof(*data->CFsPerBCC));
+  if (!data->CFsPerBCC) {
+    goto fail;
+  }
+  data->urfInfoPerBCC = RDL_alloc(data->bccGraphs->nof_bcc, sizeof(*data->urfInfoPerBCC));
+  if (!data->urfInfoPerBCC) {
+    goto fail;
+  }
+  data->nofURFsPerBCC = RDL_alloc(data->bccGraphs->nof_bcc, sizeof(*data->nofURFsPerBCC));
+  if (!data->nofURFsPerBCC) {
+    goto fail;
+  }
+  data->nofRCFsPerBCC = RDL_alloc(data->bccGraphs->nof_bcc, sizeof(*data->nofRCFsPerBCC));
+  if (!data->nofRCFsPerBCC) {
+    goto fail;
+  }
 
   /* the followeing steps are performed for each BCC */
   for (i = 0; i < data->bccGraphs->nof_bcc; ++i) {
     /* solve APSP problem */
     data->spiPerBCC[i] = RDL_AllPairsShortestPaths(data->bccGraphs->bcc_graphs[i]);
+    if (!data->spiPerBCC[i]) {
+      goto fail;
+    }
     /* calculate RCFs with Vismara's algortihm */
     data->CFsPerBCC[i] = RDL_findCycleFams(data->bccGraphs->bcc_graphs[i], data->spiPerBCC[i]);
-    /* this can fail if the BCC is to large */
     if (!data->CFsPerBCC[i]) {
-      /* delete families and APSP information UPTO current index */
-      for (j = 0; j < i; ++j) {
-        RDL_deleteAPSP(data->spiPerBCC[j], data->bccGraphs->bcc_graphs[j]->V);
-        RDL_deleteCycleFams(data->CFsPerBCC[j]);
-        if (data->nofURFsPerBCC[j] > 0) {
-          RDL_deleteURFInfo(data->urfInfoPerBCC[j]);
-        }
-      }
-      /* delete APSP for current index (there is no RCF info) */
-      RDL_deleteAPSP(data->spiPerBCC[i], data->bccGraphs->bcc_graphs[i]->V);
-
-      /* free alloced per BCC structures */
-      free(data->spiPerBCC);
-      free(data->CFsPerBCC);
-      free(data->nofURFsPerBCC);
-      free(data->nofRCFsPerBCC);
-      free(data->urfInfoPerBCC);
-      /* and of course the BCC graph */
-      RDL_deleteBCCGraph(data->bccGraphs);
-      /* free resulting struct */
-      free(data);
-
-      return NULL;
+      goto fail;
     }
     if(data->CFsPerBCC[i]->nofFams > 0) {
       /* if there is at least one RCF, check URF relation */
       data->urfInfoPerBCC[i] = RDL_checkURFRelation(data->CFsPerBCC[i],
           data->bccGraphs->bcc_graphs[i], data->spiPerBCC[i]);
+      if (!data->urfInfoPerBCC[i]) {
+        goto fail;
+      }
       data->nofURFsPerBCC[i] = data->urfInfoPerBCC[i]->nofURFs;
 
       nof_relevant_fams = 0;
@@ -164,9 +169,15 @@ RDL_data *RDL_calculate(RDL_graph *gra)
   }
 
   /* create a mapping from URFs to BCCs */
-  data->urf_to_bcc = malloc(data->nofURFs * sizeof(*data->urf_to_bcc));
+  data->urf_to_bcc = RDL_alloc(data->nofURFs, sizeof(*data->urf_to_bcc));
+  if (!data->urf_to_bcc) {
+    goto fail;
+  }
   /* create a mapping from RCFs to URFs */
-  data->rcf_to_urf = malloc(data->nofRCFs * sizeof(*data->rcf_to_urf));
+  data->rcf_to_urf = RDL_alloc(data->nofRCFs, sizeof(*data->rcf_to_urf));
+  if (!data->rcf_to_urf) {
+    goto fail;
+  }
   urf_index = 0;
   rcf_index = 0;
   for (i = 0; i < data->bccGraphs->nof_bcc; ++i) {
@@ -183,6 +194,10 @@ RDL_data *RDL_calculate(RDL_graph *gra)
   data->graph = gra;
 
   return data;
+fail:
+  /* Input ownership transfers only on success. */
+  RDL_deleteData(data);
+  return NULL;
 }
 
 /* public, free memory */
@@ -190,24 +205,31 @@ void RDL_deleteData(RDL_data *data)
 {
   unsigned i;
 
-  for (i = 0; i < data->bccGraphs->nof_bcc; ++i) {
-    RDL_deleteAPSP(data->spiPerBCC[i], data->bccGraphs->bcc_graphs[i]->V);
-    RDL_deleteCycleFams(data->CFsPerBCC[i]);
-    if (data->nofURFsPerBCC[i] > 0) {
+  if (!data) {
+    return;
+  }
+  for (i = 0; data->bccGraphs && i < data->bccGraphs->nof_bcc; ++i) {
+    if (data->spiPerBCC) {
+      RDL_deleteAPSP(data->spiPerBCC[i], data->bccGraphs->bcc_graphs[i]->V);
+    }
+    if (data->CFsPerBCC) {
+      RDL_deleteCycleFams(data->CFsPerBCC[i]);
+    }
+    if (data->urfInfoPerBCC) {
       RDL_deleteURFInfo(data->urfInfoPerBCC[i]);
     }
   }
-  free(data->spiPerBCC);
-  free(data->CFsPerBCC);
-  free(data->nofURFsPerBCC);
-  free(data->nofRCFsPerBCC);
-  free(data->urfInfoPerBCC);
+  RDL_free(data->spiPerBCC);
+  RDL_free(data->CFsPerBCC);
+  RDL_free(data->nofURFsPerBCC);
+  RDL_free(data->nofRCFsPerBCC);
+  RDL_free(data->urfInfoPerBCC);
   RDL_deleteBCCGraph(data->bccGraphs);
-  free(data->urf_to_bcc);
-  free(data->rcf_to_urf);
+  RDL_free(data->urf_to_bcc);
+  RDL_free(data->rcf_to_urf);
 
   RDL_deleteGraph(data->graph);
-  free(data);
+  RDL_free(data);
 }
 
 /* public, get the total number of URFs */
@@ -289,20 +311,17 @@ unsigned RDL_getWeightForRCF(const RDL_data *data, unsigned index)
  * urf_internal_index relative to bcc_index and rcf_internal_index relative to URF
  */
 static void RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
-    unsigned urf_internal_index, unsigned rcf_internal_index, char* atoms)
+    unsigned urf_internal_index, unsigned rcf_internal_index, char* atoms,
+    char *visited)
 {
   const RDL_cfam **URF;
-  char *visited;
   const RDL_graph* graph;
 
   graph = data->bccGraphs->bcc_graphs[bcc_index];
 
   URF = (const RDL_cfam **)data->urfInfoPerBCC[bcc_index]->URFs[urf_internal_index];
 
-  visited = malloc(graph->V *  sizeof(*visited));
-
   /* BFS on both shortest path graphs */
-  memset(visited, 0, graph->V *  sizeof(*visited));
   RDL_giveVertices(URF[rcf_internal_index]->r, URF[rcf_internal_index]->q,
       atoms, data->spiPerBCC[bcc_index], visited);
 
@@ -313,7 +332,6 @@ static void RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
   if(URF[rcf_internal_index]->x < UINT_MAX) /*even cycle*/ {
     atoms[URF[rcf_internal_index]->x] = 1;
   }
-  free(visited);
 }
 
 
@@ -321,56 +339,50 @@ static void RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
  * gives an array of indices of nodes that are contained in the URF with the
  * given index. Array is terminated by UINT_MAX
  */
-static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index)
+static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned i,nofFams,nextfree=0,alloced, bcc_index, internal_index;
-  char *atoms;
+  unsigned i, nofFams, bcc_index, internal_index;
+  char *atoms = NULL, *visited = NULL;
   RDL_node *result;
   const RDL_graph* graph;
 
   bcc_index = data->urf_to_bcc[index][0];
   internal_index = data->urf_to_bcc[index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
-  atoms = malloc(graph->V * sizeof(*atoms));
-  memset(atoms, 0, graph->V * sizeof(*atoms));
+  atoms = RDL_alloc(graph->V, sizeof(*atoms));
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!atoms || !visited) {
+    goto fail;
+  }
 
   nofFams = data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[internal_index];
-  alloced = RDL_RESERVED_START;
-  result = malloc(alloced * sizeof(*result));
-
   /* iterate over all RCFs in this URFs and collect data in one bitset (atoms) */
   for(i=0; i<nofFams; ++i) {
-    RDL_getNodes_internal(data, bcc_index, internal_index, i, atoms);
+    RDL_getNodes_internal(data, bcc_index, internal_index, i, atoms, visited);
   }
 
-  /* translate into a dynamic table */
-  for(i=0; i<graph->V; ++i) {
-    if(atoms[i] == 1) {
-      if(nextfree == alloced) {/*double the size*/
-        alloced *= 2;
-        result = realloc(result, alloced*sizeof(*result));
-      }
-      result[nextfree++] = data->bccGraphs->node_from_bcc_mapping[bcc_index][i];
-    }
-  }
-
-  result = realloc(result, (nextfree+1)*sizeof(*result));
-
-  result[nextfree] = UINT_MAX;
-  free(atoms);
-
+  result = RDL_bitset_to_array(atoms, graph->V,
+      data->bccGraphs->node_from_bcc_mapping[bcc_index], count);
+  RDL_free(atoms);
+  RDL_free(visited);
   return result;
+fail:
+  RDL_free(atoms);
+  RDL_free(visited);
+  return NULL;
 }
 
 /* private
  * gives an array of indices of nodes that are contained in the RRF with the
  * given index. Array is terminated by UINT_MAX
  */
-static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
+static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned i,nextfree=0,alloced, bcc_index,
+  unsigned bcc_index,
       urf_internal_index, rcf_internal_index, urf_index;
-  char *atoms;
+  char *atoms = NULL, *visited = NULL;
   RDL_node *result;
   const RDL_graph* graph;
 
@@ -379,33 +391,25 @@ static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
   bcc_index = data->urf_to_bcc[urf_index][0];
   urf_internal_index = data->urf_to_bcc[urf_index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
-  atoms = malloc(graph->V * sizeof(*atoms));
-  memset(atoms, 0, graph->V * sizeof(*atoms));
-
-  alloced = RDL_RESERVED_START;
-  result = malloc(alloced * sizeof(*result));
-
-  /* save the nodes into bitset */
-  RDL_getNodes_internal(data, bcc_index, urf_internal_index,
-      rcf_internal_index, atoms);
-
-  /* translate into a dynamic table */
-  for(i=0; i<graph->V; ++i) {
-    if(atoms[i] == 1) {
-      if(nextfree == alloced) {/*double the size*/
-        alloced *= 2;
-        result = realloc(result, alloced*sizeof(*result));
-      }
-      result[nextfree++] = data->bccGraphs->node_from_bcc_mapping[bcc_index][i];
-    }
+  atoms = RDL_alloc(graph->V, sizeof(*atoms));
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!atoms || !visited) {
+    goto fail;
   }
 
-  result = realloc(result, (nextfree+1)*sizeof(*result));
+  /* save the nodes into bitset */
+  RDL_getNodes_internal(data, bcc_index, urf_internal_index, rcf_internal_index,
+      atoms, visited);
 
-  result[nextfree] = UINT_MAX;
-  free(atoms);
-
+  result = RDL_bitset_to_array(atoms, graph->V,
+      data->bccGraphs->node_from_bcc_mapping[bcc_index], count);
+  RDL_free(atoms);
+  RDL_free(visited);
   return result;
+fail:
+  RDL_free(atoms);
+  RDL_free(visited);
+  return NULL;
 }
 
 /* public, calculate the number of RCs */
@@ -458,6 +462,9 @@ static double RDL_getNofRCForRCF_internal(const RDL_data *data,
   nofPaths2 = RDL_countPaths(URF[rcf_internal_index]->r, URF[rcf_internal_index]->p,
       graph->V, data->spiPerBCC[bcc_index]);
 
+  if (nofPaths1 == RDL_INVALID_RC_COUNT || nofPaths2 == RDL_INVALID_RC_COUNT) {
+    return RDL_INVALID_RC_COUNT;
+  }
   result = nofPaths1 * nofPaths2;
 
   /* check if either of the number paths is larger than what we can multiply */
@@ -541,10 +548,9 @@ double RDL_getNofRCForURF(const RDL_data *data, unsigned index)
  */
 static void RDL_getEdges_internal(const RDL_data *data,
     unsigned bcc_index, unsigned urf_internal_index,
-    unsigned rcf_internal_index, char* edges)
+    unsigned rcf_internal_index, char* edges, char *visited)
 {
   const RDL_cfam **URF;
-  char *visited;
   const RDL_graph* graph;
 
   graph = data->bccGraphs->bcc_graphs[bcc_index];
@@ -552,9 +558,6 @@ static void RDL_getEdges_internal(const RDL_data *data,
   URF = (const RDL_cfam **)data->urfInfoPerBCC[bcc_index]->URFs[urf_internal_index];
 
   /* perform BFS on both paths and collect edges */
-  visited = malloc(graph->V *  sizeof(*visited));
-  memset(visited, 0, graph->V *  sizeof(*visited));
-
   RDL_giveEdges(URF[rcf_internal_index]->r, URF[rcf_internal_index]->q,
       edges, graph, data->spiPerBCC[bcc_index], visited);
 
@@ -573,7 +576,6 @@ static void RDL_getEdges_internal(const RDL_data *data,
   else /*odd cycle*/ {
     edges[RDL_edgeId(graph,URF[rcf_internal_index]->q,URF[rcf_internal_index]->p)] = 1;
   }
-  free(visited);
 }
 
 
@@ -581,10 +583,11 @@ static void RDL_getEdges_internal(const RDL_data *data,
  * gives an array of indices of edges that are contained in the URF with the
  * given index. Array is terminated by UINT_MAX
  */
-static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
+static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned i,nofFams,nextfree=0,alloced, bcc_index, internal_index;
-  char *edges;
+  unsigned i, nofFams, bcc_index, internal_index;
+  char *edges = NULL, *visited = NULL;
   unsigned *result;
   const RDL_graph* graph;
 
@@ -592,46 +595,39 @@ static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
   bcc_index = data->urf_to_bcc[index][0];
   internal_index = data->urf_to_bcc[index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
-  edges = malloc(graph->E * sizeof(*edges));
-  memset(edges, 0, graph->E * sizeof(*edges));
+  edges = RDL_alloc(graph->E, sizeof(*edges));
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!edges || !visited) {
+    goto fail;
+  }
 
   nofFams = data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[internal_index];
-  alloced = RDL_RESERVED_START;
-  result = malloc(alloced * sizeof(*result));
-
   /* iterate over all RCFs in this URF and collect results in bitset (edges) */
   for(i=0; i<nofFams; ++i) {
-    RDL_getEdges_internal(data, bcc_index, internal_index, i, edges);
+    RDL_getEdges_internal(data, bcc_index, internal_index, i, edges, visited);
   }
 
-  /* translate into dynamic table */
-  for(i=0; i<graph->E; ++i) {
-    if(edges[i] == 1) {
-      if(nextfree == alloced)
-      {/*double the size*/
-        alloced *= 2;
-        result = realloc(result, alloced*sizeof(*result));
-      }
-      result[nextfree++] = data->bccGraphs->edge_from_bcc_mapping[bcc_index][i];
-    }
-  }
-  result = realloc(result, (nextfree+1)*sizeof(*result));
-
-  result[nextfree] = UINT_MAX;
-
-  free(edges);
+  result = RDL_bitset_to_array(edges, graph->E,
+      data->bccGraphs->edge_from_bcc_mapping[bcc_index], count);
+  RDL_free(edges);
+  RDL_free(visited);
   return result;
+fail:
+  RDL_free(edges);
+  RDL_free(visited);
+  return NULL;
 }
 
 /* private
  * gives an array of indices of edges that are contained in the RCF with the
  * given index. Array is terminated by UINT_MAX
  */
-static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
+static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index,
+    unsigned *count)
 {
-  unsigned j,nextfree=0,alloced, urf_index, bcc_index,
+  unsigned urf_index, bcc_index,
       urf_internal_index, rcf_internal_index;
-  char *edges;
+  char *edges = NULL, *visited = NULL;
   unsigned *result;
   const RDL_graph* graph;
 
@@ -641,33 +637,24 @@ static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
   bcc_index = data->urf_to_bcc[urf_index][0];
   urf_internal_index = data->urf_to_bcc[urf_index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
-  edges = malloc(graph->E * sizeof(*edges));
-  memset(edges, 0, graph->E * sizeof(*edges));
-
-  alloced = RDL_RESERVED_START;
-  result = malloc(alloced * sizeof(*result));
-
-  RDL_getEdges_internal(data, bcc_index, urf_internal_index,
-      rcf_internal_index, edges);
-
-  /* translate into dynamic table */
-  for(j=0; j<graph->E; ++j) {
-    if(edges[j] == 1) {
-      if(nextfree == alloced)
-      {/*double the size*/
-        alloced *= 2;
-        result = realloc(result, alloced*sizeof(*result));
-      }
-      result[nextfree++] = data->bccGraphs->edge_from_bcc_mapping[bcc_index][j];
-    }
+  edges = RDL_alloc(graph->E, sizeof(*edges));
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!edges || !visited) {
+    goto fail;
   }
 
-  result = realloc(result, (nextfree+1)*sizeof(*result));
+  RDL_getEdges_internal(data, bcc_index, urf_internal_index,
+      rcf_internal_index, edges, visited);
 
-  result[nextfree] = UINT_MAX;
-
-  free(edges);
+  result = RDL_bitset_to_array(edges, graph->E,
+      data->bccGraphs->edge_from_bcc_mapping[bcc_index], count);
+  RDL_free(edges);
+  RDL_free(visited);
   return result;
+fail:
+  RDL_free(edges);
+  RDL_free(visited);
+  return NULL;
 }
 
 
@@ -677,11 +664,11 @@ static unsigned *RDL_giveURF(const RDL_data *data, unsigned index, char mode)
   unsigned *result;
   if(mode == 'a')
   {
-    result = RDL_getNodesURF(data, index);
+    result = RDL_getNodesURF(data, index, NULL);
   }
   else if(mode == 'b')
   {
-    result = RDL_getEdgesURF(data, index);
+    result = RDL_getEdgesURF(data, index, NULL);
   }
   else
   {
@@ -700,11 +687,11 @@ static unsigned *RDL_giveRCF(const RDL_data *data, unsigned index, char mode)
   unsigned *result;
   if(mode == 'a')
   {
-    result = RDL_getNodesRCF(data, index);
+    result = RDL_getNodesRCF(data, index, NULL);
   }
   else if(mode == 'b')
   {
-    result = RDL_getEdgesRCF(data, index);
+    result = RDL_getEdgesRCF(data, index, NULL);
   }
   else
   {
@@ -720,129 +707,138 @@ static unsigned *RDL_giveRCF(const RDL_data *data, unsigned index, char mode)
 /* public, function for retrieving nodes in an URF */
 unsigned RDL_getNodesForURF(const RDL_data *data, unsigned index, RDL_node **ptr)
 {
-  unsigned i;
+  unsigned count;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (index >= data->nofURFs) {
     RDL_outputFunc(RDL_ERROR, "invalid index: %u\n", index);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  (*ptr) = RDL_getNodesURF(data, index);
-  for(i=0; (*ptr)[i]<UINT_MAX; ++i); /*counts the number of atoms*/
-  return i;
+  (*ptr) = RDL_getNodesURF(data, index, &count);
+
+  if (!*ptr) {
+    return RDL_INVALID_RESULT;
+  }
+  return count;
 }
 
 /* public, function for retrieving nodes in an RCF */
 unsigned RDL_getNodesForRCF(const RDL_data *data, unsigned index, RDL_node **ptr)
 {
-  unsigned i;
+  unsigned count;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (index >= data->nofRCFs) {
     RDL_outputFunc(RDL_ERROR, "invalid index: %u\n", index);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  (*ptr) = RDL_getNodesRCF(data, index);
-  for(i=0; (*ptr)[i]<UINT_MAX; ++i); /*counts the number of atoms*/
-  return i;
+  (*ptr) = RDL_getNodesRCF(data, index, &count);
+
+  if (!*ptr) {
+    return RDL_INVALID_RESULT;
+  }
+  return count;
+}
+
+static RDL_edge *RDL_mapEdgeIndices(const RDL_data *data,
+    const unsigned *edgeIndices, unsigned count)
+{
+  unsigned i;
+  RDL_edge *result;
+
+  result = RDL_alloc(count, sizeof(*result));
+  if (!result) {
+    return NULL;
+  }
+  for (i = 0; i < count; ++i) {
+    result[i][0] = data->graph->edges[edgeIndices[i]][0];
+    result[i][1] = data->graph->edges[edgeIndices[i]][1];
+  }
+  return result;
 }
 
 /* public, function for retrieving edges of URF */
 unsigned RDL_getEdgesForURF(const RDL_data *data, unsigned index, RDL_edge **ptr)
 {
-  unsigned nextfree, alloced;
-  RDL_edge *result;
-  unsigned *edgeIndices;
-  unsigned i;
+  unsigned count;
+  unsigned *edgeIndices = NULL;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (index >= data->nofURFs) {
     RDL_outputFunc(RDL_ERROR, "invalid index: %u\n", index);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  nextfree = 0;
-  alloced = RDL_RESERVED_START;
-  result = malloc(alloced * sizeof(*result));
-  edgeIndices = RDL_getEdgesURF(data, index);
-  /* translate result from edge indices to edges */
-  for(i=0; edgeIndices[i]<UINT_MAX; ++i)
-  {
-    if(nextfree == alloced)/*more space needed in result*/
-    {
-      alloced *= 2; /* double the space */
-      result = realloc(result, alloced * sizeof(*result));
-    }
-    result[nextfree][0] = data->graph->edges[edgeIndices[i]][0];
-    result[nextfree][1] = data->graph->edges[edgeIndices[i]][1];
-    ++nextfree;
+  edgeIndices = RDL_getEdgesURF(data, index, &count);
+  if (!edgeIndices) {
+    goto fail;
   }
-  result = realloc(result, nextfree * sizeof(*result));
-  free(edgeIndices);
-  (*ptr) = result;
-  return nextfree;
+  *ptr = RDL_mapEdgeIndices(data, edgeIndices, count);
+  RDL_free(edgeIndices);
+  edgeIndices = NULL;
+  if (!*ptr) {
+    goto fail;
+  }
+  return count;
+fail:
+  RDL_free(edgeIndices);
+  *ptr = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, function for retrieving edges of RCF */
 unsigned RDL_getEdgesForRCF(const RDL_data *data, unsigned index, RDL_edge **ptr)
 {
-  unsigned nextfree, alloced;
-  RDL_edge *result;
-  unsigned *edgeIndices;
-  unsigned i;
+  unsigned count;
+  unsigned *edgeIndices = NULL;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (index >= data->nofRCFs) {
     RDL_outputFunc(RDL_ERROR, "invalid index: %u\n", index);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  nextfree = 0;
-  alloced = RDL_RESERVED_START;
-  result = malloc(alloced * sizeof(*result));
-  edgeIndices = RDL_getEdgesRCF(data, index);
-  /* translate result from edge indices to edges */
-  for(i=0; edgeIndices[i]<UINT_MAX; ++i)
-  {
-    if(nextfree == alloced)/*more space needed in result*/
-    {
-      alloced *= 2; /* double the space */
-      result = realloc(result, alloced * sizeof(*result));
-    }
-    result[nextfree][0] = data->graph->edges[edgeIndices[i]][0];
-    result[nextfree][1] = data->graph->edges[edgeIndices[i]][1];
-    ++nextfree;
+  edgeIndices = RDL_getEdgesRCF(data, index, &count);
+  if (!edgeIndices) {
+    goto fail;
   }
-  result = realloc(result, nextfree * sizeof(*result));
-  free(edgeIndices);
-  (*ptr) = result;
-  return nextfree;
+  *ptr = RDL_mapEdgeIndices(data, edgeIndices, count);
+  RDL_free(edgeIndices);
+  edgeIndices = NULL;
+  if (!*ptr) {
+    goto fail;
+  }
+  return count;
+fail:
+  RDL_free(edgeIndices);
+  *ptr = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, to delete result of RDL_getCyclesChar() */
@@ -851,27 +847,33 @@ void RDL_deleteCyclesChar(char **cycles)
   unsigned i;
   for(i=0; cycles[i]!=NULL; ++i)
   {
-    free(cycles[i]);
+    RDL_free(cycles[i]);
   }
-  free(cycles);
+  RDL_free(cycles);
 }
 
 /* public, delete cycle */
 void RDL_deleteCycle(RDL_cycle *cycle)
 {
-  free(cycle->edges);
-  free(cycle);
+  if (!cycle) {
+    return;
+  }
+  RDL_free(cycle->edges);
+  RDL_free(cycle);
 }
 
 /* public, delete cycles */
 void RDL_deleteCycles(RDL_cycle **cycles, unsigned number)
 {
   unsigned i;
+  if (!cycles) {
+    return;
+  }
   for(i=0; i<number; ++i)
   {
     RDL_deleteCycle(cycles[i]);
   }
-  free(cycles);
+  RDL_free(cycles);
 }
 
 /*
@@ -882,12 +884,13 @@ mode:
   - 'b': edges
 returns an array of integers containing all indices of families containing the
 object. The array ends with a terminating UINT_MAX on its last position and has
-to be deallocated with 'free()'
+to be deallocated with 'RDL_free()'
 */
 static unsigned *RDL_listFamilies(const RDL_data *data, unsigned object,
-    char mode, char family)
+    char mode, char family, unsigned *count)
 {
-  unsigned *result;
+  unsigned *result = NULL;
+  void *resized;
   unsigned nof_families;
   unsigned nextfree=0, alloced=RDL_RESERVED_START;
   unsigned *objects;
@@ -919,7 +922,11 @@ static unsigned *RDL_listFamilies(const RDL_data *data, unsigned object,
     return NULL;
   }
 
-  result=malloc(alloced * sizeof(*result));
+  result = RDL_alloc((size_t)alloced + 1, sizeof(*result));
+
+  if (!result) {
+    goto fail;
+  }
   for(i = 0; i < nof_families; ++i)
   {
     if (family == 'u') {
@@ -955,6 +962,9 @@ static unsigned *RDL_listFamilies(const RDL_data *data, unsigned object,
     contained = 0;
     if (can_be_contained) {
       objects = giveFamily(data, i, mode);
+      if (!objects) {
+        goto fail;
+      }
       for(j=0; objects[j]<UINT_MAX; ++j)
       {
         if(objects[j] == object)
@@ -963,20 +973,30 @@ static unsigned *RDL_listFamilies(const RDL_data *data, unsigned object,
           break;
         }
       }
-      free(objects);
+      RDL_free(objects);
     }
     if (contained) {
       if(nextfree == alloced) {
+        if (alloced > UINT_MAX / 2) {
+          goto fail;
+        }
         alloced *= 2;
-        result = realloc(result, alloced*sizeof(*result));
+        resized = RDL_resize(result, (size_t)alloced + 1, sizeof(*result));
+        if (!resized) {
+          goto fail;
+        }
+        result = resized;
       }
       result[nextfree++] = i;
     }
   }
 
-  result = realloc(result, (nextfree+1)*sizeof(*result));
   result[nextfree] = UINT_MAX;
+  *count = nextfree;
   return result;
+fail:
+  RDL_free(result);
+  return NULL;
 }
 
 /* private, get families containing a node */
@@ -984,28 +1004,31 @@ static unsigned RDL_getFamiliesContainingNode_internal(
     const RDL_data *data, RDL_node object, unsigned **ptr,
     char family)
 {
-  unsigned i;
+  unsigned count;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (object >= data->graph->V) {
     RDL_outputFunc(RDL_ERROR, "invalid node: %u\n", object);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (data->nofURFs < 1) {
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return 0;
   }
 
-  *ptr = RDL_listFamilies(data, object, 'a', family);
-  for(i=0; (*ptr)[i]<UINT_MAX; ++i);
-  return i;
+  *ptr = RDL_listFamilies(data, object, 'a', family, &count);
+
+  if (!*ptr) {
+    return RDL_INVALID_RESULT;
+  }
+  return count;
 }
 
 /* public, get the RCF indices with this node */
@@ -1027,17 +1050,17 @@ static unsigned RDL_getFamiliesContainingEdge_internal(
     const RDL_data *data, RDL_node node1, RDL_node node2, unsigned **ptr,
     char family)
 {
-  unsigned i, edge;
+  unsigned count, edge;
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (node1 >= data->graph->V || node2 >= data->graph->V) {
     RDL_outputFunc(RDL_ERROR, "invalid edge: %u %u\n", node1, node2);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
@@ -1046,18 +1069,21 @@ static unsigned RDL_getFamiliesContainingEdge_internal(
   /* check if this edge exists at all */
   if (edge == RDL_INVALID_RESULT) {
     RDL_outputFunc(RDL_ERROR, "invalid edge: %u %u\n", node1, node2);
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (data->nofURFs < 1) {
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return 0;
   }
 
-  *ptr = RDL_listFamilies(data, edge, 'b', family);
-  for(i=0; (*ptr)[i]<UINT_MAX; ++i);
-  return i;
+  *ptr = RDL_listFamilies(data, edge, 'b', family, &count);
+
+  if (!*ptr) {
+    return RDL_INVALID_RESULT;
+  }
+  return count;
 }
 
 
@@ -1081,7 +1107,7 @@ unsigned RDL_getNofURFContainingNode(const RDL_data *data, RDL_node node)
   unsigned number;
   unsigned *arr;
   number = RDL_getURFsContainingNode(data, node, &arr);
-  free(arr);
+  RDL_free(arr);
   return number;
 }
 
@@ -1091,7 +1117,7 @@ unsigned RDL_getNofURFContainingEdge(const RDL_data *data, RDL_node node1, RDL_n
   unsigned number;
   unsigned *arr;
   number = RDL_getURFsContainingEdge(data, node1, node2, &arr);
-  free(arr);
+  RDL_free(arr);
   return number;
 }
 
@@ -1101,7 +1127,7 @@ unsigned RDL_getNofRCFContainingNode(const RDL_data *data, RDL_node node)
   unsigned number;
   unsigned *arr;
   number = RDL_getRCFsContainingNode(data, node, &arr);
-  free(arr);
+  RDL_free(arr);
   return number;
 }
 
@@ -1111,7 +1137,7 @@ unsigned RDL_getNofRCFContainingEdge(const RDL_data *data, RDL_node node1, RDL_n
   unsigned number;
   unsigned *arr;
   number = RDL_getRCFsContainingEdge(data, node1, node2, &arr);
-  free(arr);
+  RDL_free(arr);
   return number;
 }
 
@@ -1119,30 +1145,32 @@ unsigned RDL_getNofRCFContainingEdge(const RDL_data *data, RDL_node node1, RDL_n
 unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
 {
   unsigned j, k, rcf=0, urf=0;
-  RDL_cycle **result;
+  RDL_cycle **result = NULL;
+  void *resized;
   unsigned size, added, currBond;
-  unsigned bcc_index, internal_index;
+  unsigned bcc_index = 0, internal_index;
   char* prototype;
   const RDL_graph* curr_graph;
-  unsigned total_counter, alloced;
+  unsigned total_counter = 0, alloced;
+  unsigned success = 0;
   unsigned edge;
   unsigned char *currentCycle;
-  unsigned char **basisCycles;
-  unsigned char **prototypesForGaussian;
-  unsigned currentBasisCyclesSize;
+  unsigned char **basisCycles = NULL;
+  unsigned char **prototypesForGaussian = NULL;
+  unsigned currentBasisCyclesSize = 0;
   unsigned oldBasisCyclesSize;
   unsigned compressedSize = 0;
-  const unsigned char* empty_cycle;
+  const unsigned char* empty_cycle = NULL;
 
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (data->nofURFs < 1) {
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return 0;
   }
 
@@ -1159,7 +1187,10 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
   else {
     alloced = data->graph->E - data->graph->V + 1;
   }
-  result = malloc(alloced * sizeof(*result));
+  result = RDL_alloc(alloced, sizeof(*result));
+  if (!result) {
+    goto fail;
+  }
 
   /* calculate basis for each BCC (and therefore for each CC) */
 
@@ -1168,9 +1199,15 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
 
     size=curr_graph->E - curr_graph->V + 1;
 
-    basisCycles = malloc(size * sizeof(*basisCycles));
-    prototypesForGaussian =
-        malloc(data->nofURFsPerBCC[bcc_index] * sizeof(*prototypesForGaussian));
+    basisCycles = RDL_alloc(size, sizeof(*basisCycles));
+
+    if (!basisCycles) {
+      goto fail;
+    }
+    prototypesForGaussian = RDL_alloc(data->nofURFsPerBCC[bcc_index], sizeof(*prototypesForGaussian));
+    if (!prototypesForGaussian) {
+      goto fail;
+    }
 
     /* copy the prototypes for gaussian elimination */
     /*
@@ -1182,10 +1219,16 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
       compressedSize = RDL_bitset_compressed(&(prototypesForGaussian[internal_index]),
           data->urfInfoPerBCC[bcc_index]->URFs[internal_index][0]->prototype,
           curr_graph->E);
+      if (compressedSize == RDL_INVALID_RESULT) {
+        goto fail;
+      }
     }
 
-    empty_cycle = malloc(compressedSize * sizeof(*empty_cycle));
-    memset((unsigned char*)empty_cycle, 0, compressedSize * sizeof(*empty_cycle));
+    empty_cycle = RDL_alloc(compressedSize, sizeof(*empty_cycle));
+
+    if (!empty_cycle) {
+      goto fail;
+    }
 
     added = 0;
     currentBasisCyclesSize = 0;
@@ -1193,12 +1236,16 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
     for (internal_index = 0;
         internal_index < data->nofURFsPerBCC[bcc_index]; ++internal_index, ++urf) {
 
-      currentCycle = malloc(compressedSize * sizeof(*currentCycle));
+      currentCycle = RDL_alloc(compressedSize, sizeof(*currentCycle));
+
+      if (!currentCycle) {
+        goto fail;
+      }
       memcpy(currentCycle, prototypesForGaussian[internal_index],
           compressedSize * sizeof(*currentCycle));
 
       /*
-       * basisCycles is in row echelon form!result = realloc(result, nextfree * sizeof(*result));
+       * basisCycles is in row echelon form!
        * [this corresponds to "add row operation"]
        */
       for (k = 0; k < currentBasisCyclesSize; ++k) {
@@ -1208,7 +1255,7 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
       }
 
       if (RDL_bitset_empty(currentCycle, empty_cycle, compressedSize)) {
-        free(currentCycle);
+        RDL_free(currentCycle);
         continue;
       }
       /*
@@ -1243,14 +1290,24 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
 
       /* can happen for unconnected graphs */
       if (total_counter >= alloced) {
+        if (alloced > UINT_MAX / 2) {
+          goto fail;
+        }
         alloced *= 2;
-        result = realloc(result, (alloced) * sizeof(*result));
+        resized = RDL_resize(result, alloced, sizeof(*result));
+        if (!resized) {
+          goto fail;
+        }
+        result = resized;
       }
 
       currBond = 0;
-      result[total_counter] = malloc(sizeof(**result));
-      result[total_counter]->edges = malloc(data->urfInfoPerBCC[bcc_index]->URFs[internal_index][0]->weight *
-                                   sizeof(*(result[total_counter]->edges)));
+      result[total_counter] = RDL_alloc(1, sizeof(**result));
+      if (!result[total_counter]) {
+        goto fail;
+      }
+      result[total_counter]->edges = RDL_alloc(data->urfInfoPerBCC[bcc_index]->URFs[internal_index][0]->weight, sizeof(*(result[total_counter]->edges)));
+      if (!result[total_counter]->edges) { RDL_deleteCycle(result[total_counter]); goto fail; }
       result[total_counter]->weight = data->urfInfoPerBCC[bcc_index]->URFs[internal_index][0]->weight;
       result[total_counter]->urf = urf;
       result[total_counter]->rcf = rcf;
@@ -1273,27 +1330,46 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
     }
 
     for (k = 0; k < currentBasisCyclesSize; ++k) {
-      free(basisCycles[k]);
+      RDL_free(basisCycles[k]);
     }
-    free(basisCycles);
+    RDL_free(basisCycles); basisCycles = NULL; currentBasisCyclesSize = 0;
 
     for (k = 0; k < data->nofURFsPerBCC[bcc_index]; ++k) {
-      free(prototypesForGaussian[k]);
+      RDL_free(prototypesForGaussian[k]);
     }
-    free(prototypesForGaussian);
-    free((void*)empty_cycle);
+    RDL_free(prototypesForGaussian); prototypesForGaussian = NULL;
+    RDL_free((void*)empty_cycle); empty_cycle = NULL;
   }
 
-  result = realloc(result, total_counter * sizeof(*result));
 
-  (*ptr) = result;
+
+  success = 1;
+fail:
+  if (basisCycles) {
+    for (k = 0; k < currentBasisCyclesSize; ++k) {
+      RDL_free(basisCycles[k]);
+    }
+  }
+  RDL_free(basisCycles);
+  if (prototypesForGaussian) {
+    for (k = 0; k < data->nofURFsPerBCC[bcc_index]; ++k) {
+      RDL_free(prototypesForGaussian[k]);
+    }
+  }
+  RDL_free(prototypesForGaussian); RDL_free((void*)empty_cycle);
+  if (!success) {
+    RDL_deleteCycles(result, total_counter);
+    *ptr = NULL;
+    return RDL_INVALID_RESULT;
+  }
+  *ptr = result;
   return total_counter;
 }
 
 /* public, get the RCPs */
 unsigned RDL_getRCPrototypes(const RDL_data *data, RDL_cycle ***ptr)
 {
-  RDL_cycle **result;
+  RDL_cycle **result = NULL;
   unsigned nof_urf;
   unsigned nofRel=0, rcf=0;
   unsigned currFam=0, currEdge;
@@ -1303,12 +1379,12 @@ unsigned RDL_getRCPrototypes(const RDL_data *data, RDL_cycle ***ptr)
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (data->nofURFs < 1) {
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return 0;
   }
 
@@ -1319,16 +1395,22 @@ unsigned RDL_getRCPrototypes(const RDL_data *data, RDL_cycle ***ptr)
   }
 
   /*allocate space*/
-  result = malloc(nofRel * sizeof(*result));
+  result = RDL_alloc(nofRel, sizeof(*result));
+  if (!result) {
+    goto fail;
+  }
 
   for (bcc_index = 0; bcc_index < data->bccGraphs->nof_bcc; ++bcc_index) {
     nof_urf = data->nofURFsPerBCC[bcc_index];
     for (i = 0; i < nof_urf; ++i) {
       for (j = 0; j < data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[i]; ++j, ++rcf) {
         prototype = data->urfInfoPerBCC[bcc_index]->URFs[i][j]->prototype;
-        result[currFam] = malloc(sizeof(**result));
-        result[currFam]->edges = malloc(data->urfInfoPerBCC[bcc_index]->URFs[i][j]->weight *
-                                  sizeof(*result[currFam]->edges));
+        result[currFam] = RDL_alloc(1, sizeof(**result));
+        if (!result[currFam]) {
+          goto fail;
+        }
+        result[currFam]->edges = RDL_alloc(data->urfInfoPerBCC[bcc_index]->URFs[i][j]->weight, sizeof(*result[currFam]->edges));
+        if (!result[currFam]->edges) { RDL_deleteCycle(result[currFam]); goto fail; }
         result[currFam]->weight = data->urfInfoPerBCC[bcc_index]->URFs[i][j]->weight;
         result[currFam]->urf = i;
         result[currFam]->rcf = rcf;
@@ -1348,6 +1430,10 @@ unsigned RDL_getRCPrototypes(const RDL_data *data, RDL_cycle ***ptr)
 
   (*ptr) = result;
   return nofRel;
+fail:
+  RDL_deleteCycles(result, currFam);
+  *ptr = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, get an RDL_cycleIterator for RCFs */
@@ -1434,29 +1520,56 @@ RDL_cycleIterator* RDL_getRCyclesIterator(const RDL_data *data)
 static unsigned RDL_getRCycles_internal(
     const RDL_data *data, RDL_cycle ***ptr, RDL_cycleIterator* it)
 {
-  RDL_cycle **result;
+  RDL_cycle **result = NULL;
+  void *resized;
   unsigned alloced, nextfree;
 
   alloced = RDL_RESERVED_START;
   nextfree = 0;
-  result = malloc(alloced * sizeof(*result));
+  result = RDL_alloc(alloced, sizeof(*result));
+  if (!result) {
+    goto fail;
+  }
 
   while (!RDL_cycleIteratorAtEnd(it)) {
     if(nextfree == alloced) {
+      if (alloced > UINT_MAX / 2) {
+        goto fail;
+      }
       alloced *= 2;
-      result = realloc(result, alloced * sizeof(*result));
+      resized = RDL_resize(result, alloced, sizeof(*result));
+      if (!resized) {
+        goto fail;
+      }
+      result = resized;
     }
     result[nextfree] = RDL_cycleIteratorGetCycle(it);
+    if (!result[nextfree]) {
+      goto fail;
+    }
     ++nextfree;
 
-    RDL_cycleIteratorNext(it);
+    if (!RDL_cycleIteratorNext(it)) {
+      goto fail;
+    }
   }
+  /* Shrink the returned array to its exact size. */
+  {
+    RDL_cycle **shrunk = RDL_resize(result, nextfree, sizeof(*result));
+    if (!shrunk) {
+      goto fail;
+    }
+    result = shrunk;
+  }
+
   RDL_deleteCycleIterator(it);
-
-  result = realloc(result, nextfree * sizeof(*result));
-
   *ptr = result;
   return nextfree;
+fail:
+  RDL_deleteCycles(result, nextfree);
+  RDL_deleteCycleIterator(it);
+  *ptr = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, get all RCs */
@@ -1468,7 +1581,7 @@ unsigned RDL_getRCycles(const RDL_data *data, RDL_cycle ***ptr)
 
   if (it == NULL) {
     RDL_outputFunc(RDL_ERROR, "Iterator is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
@@ -1484,7 +1597,7 @@ unsigned RDL_getRCyclesForURF(const RDL_data *data, unsigned index, RDL_cycle **
 
   if (it == NULL) {
     RDL_outputFunc(RDL_ERROR, "Iterator is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
@@ -1500,7 +1613,7 @@ unsigned RDL_getRCyclesForRCF(const RDL_data *data, unsigned index, RDL_cycle **
 
   if (it == NULL) {
     RDL_outputFunc(RDL_ERROR, "Iterator is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
@@ -1516,16 +1629,17 @@ unsigned RDL_translateCycArray(const RDL_data *data, RDL_cycle **array,
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = RDL_alloc2DCharArray(0, 0);
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if (number < 1) {
-    (*ptr) = RDL_alloc2DCharArray(0, 0);
+    (*ptr) = NULL;
     return 0;
   }
 
   result = RDL_alloc2DCharArray(number, data->graph->E);
+  if (!result) { *ptr = NULL; return RDL_INVALID_RESULT; }
   for(i=0; i<number;  ++i)/*initialize to 0s*/
   {
     for(j=0; j<data->graph->E; ++j)
@@ -1561,11 +1675,15 @@ unsigned RDL_getEdgeArray(const RDL_data *data, RDL_edge **ptr)
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*ptr) = malloc(sizeof(**ptr));
+    (*ptr) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  result = malloc(data->graph->E * sizeof(*result));
+  result = RDL_alloc(data->graph->E, sizeof(*result));
+
+  if (!result) {
+    goto fail;
+  }
   for(idx=0; idx<data->graph->E; ++idx)
   {
     result[idx][0] = data->graph->edges[idx][0];
@@ -1573,6 +1691,10 @@ unsigned RDL_getEdgeArray(const RDL_data *data, RDL_edge **ptr)
   }
   (*ptr) = result;
   return data->graph->E;
+
+fail:
+  *ptr = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, get the number of edges in the graph */
@@ -1637,17 +1759,21 @@ unsigned RDL_getEdgesForRingsystem(
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*edges) = malloc(sizeof(**edges));
+    (*edges) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if(idx >= data->bccGraphs->nof_bcc) {
     RDL_outputFunc(RDL_ERROR, "idx %d is out of range!\n", idx);
-    (*edges) = malloc(sizeof(**edges));
+    (*edges) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  (*edges) = malloc(data->bccGraphs->bcc_graphs[idx]->E * sizeof(**edges));
+  (*edges) = RDL_alloc(data->bccGraphs->bcc_graphs[idx]->E, sizeof(**edges));
+
+  if (!(*edges)) {
+    goto fail;
+  }
 
   for (i = 0; i < data->bccGraphs->bcc_graphs[idx]->E; ++i) {
     edge = data->bccGraphs->edge_from_bcc_mapping[idx][i];
@@ -1656,6 +1782,10 @@ unsigned RDL_getEdgesForRingsystem(
   }
 
   return data->bccGraphs->bcc_graphs[idx]->E;
+
+fail:
+  *edges = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, get the nodes for the ring sytem */
@@ -1666,17 +1796,21 @@ unsigned RDL_getNodesForRingsystem(
 
   if (!data) {
     RDL_outputFunc(RDL_ERROR, "RDL_data is NULL!\n");
-    (*nodes) = malloc(sizeof(**nodes));
+    (*nodes) = NULL;
     return RDL_INVALID_RESULT;
   }
 
   if(idx >= data->bccGraphs->nof_bcc) {
     RDL_outputFunc(RDL_ERROR, "idx %d is out of range!\n", idx);
-    (*nodes) = malloc(sizeof(**nodes));
+    (*nodes) = NULL;
     return RDL_INVALID_RESULT;
   }
 
-  (*nodes) = malloc(data->bccGraphs->bcc_graphs[idx]->V * sizeof(*nodes));
+  (*nodes) = RDL_alloc(data->bccGraphs->bcc_graphs[idx]->V, sizeof(**nodes));
+
+  if (!(*nodes)) {
+    goto fail;
+  }
 
   for (i = 0; i < data->bccGraphs->bcc_graphs[idx]->V; ++i) {
     node = data->bccGraphs->node_from_bcc_mapping[idx][i];
@@ -1684,6 +1818,10 @@ unsigned RDL_getNodesForRingsystem(
   }
 
   return data->bccGraphs->bcc_graphs[idx]->V;
+
+fail:
+  *nodes = NULL;
+  return RDL_INVALID_RESULT;
 }
 
 /* public, get the ringsystem an edge belongs to */

@@ -27,38 +27,6 @@
 
 #include "RDLutility.h"
 
-/** initializes a new graph with the value |V| and the array degree, then
-  allocates enough space for 'adjList', so that they can be filled.
-  E is set to 0, edges are added later.*/
-static void RDL_initGraph(RDL_graph *gra, unsigned V, unsigned *degree, char owns_edges)
-{
-  unsigned i;
-  RDL_edge **adjList;
-
-  gra->V = V;
-  gra->E = 0;
-  gra->degree = degree;
-
-  adjList = malloc(V * sizeof(*adjList));
-  for(i=0; i<V; ++i)
-  {
-    if(degree[i] > 0)
-    {
-      adjList[i] = malloc(degree[i] * sizeof(**adjList));
-    }
-  }
-  gra->adjList = adjList;
-
-  if (owns_edges) {
-    gra->edgesAlloced = 64;
-    gra->edges = malloc(gra->edgesAlloced * sizeof(*gra->edges));
-  }
-  else {
-    gra->edgesAlloced = 0;
-    gra->edges = NULL;
-  }
-}
-
 static void RDL_DFSvisit(const RDL_graph *gra, unsigned vertex, char *visited)
 {
   unsigned i,j;
@@ -74,13 +42,19 @@ static void RDL_DFSvisit(const RDL_graph *gra, unsigned vertex, char *visited)
 }
 
 /** returns 1 if the graph is connected, 0 otherwise. uses DFS */
-char RDL_checkGraphConnected(const RDL_graph *gra)
+int RDL_checkGraphConnected(const RDL_graph *gra)
 {
   unsigned i;
   char *visited;
-  char result;
+  int result;
   result = 1;
-  visited = malloc(gra->V * sizeof(*visited));
+  if (!gra->V) {
+    return 1;
+  }
+  visited = RDL_alloc(gra->V, sizeof(*visited));
+  if (!visited) {
+    return -1;
+  }
   visited[0] = 1; /*start vertex*/
   for(i=1; i<gra->V; ++i)
   {
@@ -96,7 +70,7 @@ char RDL_checkGraphConnected(const RDL_graph *gra)
     }
   }
 
-  free(visited);
+  RDL_free(visited);
   return result;
 }
 
@@ -117,25 +91,27 @@ int RDL_isAdj(const RDL_graph *graph, unsigned i, unsigned j)
 void RDL_deleteGraph(RDL_graph *gra)
 {
   unsigned i;
-  assert(gra != NULL);
+  if (!gra) {
+    return;
+  }
   if(gra->edges)
   {
     for(i=0; i<gra->E; ++i)
     {
-      free(gra->edges[i]);
+      RDL_free(gra->edges[i]);
     }
-    free(gra->edges);
+    RDL_free(gra->edges);
   }
   for(i=0; i<gra->V; ++i)
   {
-    if(gra->degree[i] > 0)
+    if(gra->adjList)
     {
-      free(gra->adjList[i]);
+      RDL_free(gra->adjList[i]);
     }
   }
-  free(gra->adjList);
-  free(gra->degree);
-  free(gra);
+  RDL_free(gra->adjList);
+  RDL_free(gra->degree);
+  RDL_free(gra);
 }
 
 void RDL_printGraph(const RDL_graph *graph)
@@ -164,101 +140,102 @@ void RDL_printGraph(const RDL_graph *graph)
 
 RDL_graph *RDL_initNewGraph_g(unsigned V, char owns_edges)
 {
-  RDL_graph *graph = malloc(sizeof(*graph));
-  unsigned *degree;
-  unsigned i;
-  degree = malloc(V * sizeof(*degree));
-  for(i=0; i<V; ++i)
-  {
-    degree[i] = 0;
+  RDL_graph *graph = RDL_alloc(1, sizeof(*graph));
+  if (!graph) {
+    return NULL;
   }
-  RDL_initGraph(graph,V,degree,owns_edges);
-
+  graph->V = V;
+  graph->degree = RDL_alloc(V, sizeof(*graph->degree));
+  graph->adjList = RDL_alloc(V, sizeof(*graph->adjList));
+  if (owns_edges) {
+    graph->edgesAlloced = 64;
+    graph->edges = RDL_alloc(graph->edgesAlloced, sizeof(*graph->edges));
+  }
+  if (!graph->degree || !graph->adjList || (owns_edges && !graph->edges)) {
+    RDL_deleteGraph(graph);
+    return NULL;
+  }
   return graph;
 }
 
-void RDL_addEdge(RDL_graph *gra, unsigned from, unsigned to)
+int RDL_addEdge(RDL_graph *gra, unsigned from, unsigned to)
 {
   unsigned i;
-
-  /* loops */
+  RDL_edge *adj;
   if (from == to) {
-    return;
+    return 1;
   }
-
-  for(i=0; i<gra->degree[from]; ++i) {
-    if(gra->adjList[from][i][0] == to) {
-      /*edge already exists*/
-      return;
+  for (i = 0; i < gra->degree[from]; ++i) {
+    if (gra->adjList[from][i][0] == to) {
+      return 1;
     }
   }
+  if (gra->degree[from] == UINT_MAX || gra->E == UINT_MAX) {
+    return 0;
+  }
+  adj = RDL_resize(gra->adjList[from], (size_t)gra->degree[from] + 1, sizeof(*adj));
+  if (!adj) {
+    return 0;
+  }
+  gra->adjList[from] = adj;
+  adj[gra->degree[from]++][0] = to;
   ++gra->E;
-  ++gra->degree[from];
-  if(gra->degree[from] == 1)/*was 0, has never been initialized*/
-  {
-    gra->adjList[from] = malloc(gra->degree[from] * sizeof(*gra->adjList[from]));
-  }
-  else
-  {
-    gra->adjList[from] = realloc(gra->adjList[from], gra->degree[from] *
-                                 sizeof(*gra->adjList[from]));
-  }
-  gra->adjList[from][ gra->degree[from]-1 ][0] = to;
-}
-
-static unsigned RDL_addToEdgeArray(RDL_graph *gra, unsigned from, unsigned to)
-{
-  unsigned temp;
-  if(from > to)
-  {
-    temp = from;
-    from = to;
-    to = temp;
-  }
-  if(gra->E == gra->edgesAlloced)
-  {
-    gra->edgesAlloced *= 2;
-    gra->edges = realloc(gra->edges, gra->edgesAlloced * sizeof(*gra->edges));
-  }
-  gra->edges[gra->E-1] = malloc(2 * sizeof(**gra->edges));
-  gra->edges[gra->E-1][0] = from;
-  gra->edges[gra->E-1][1] = to;
-
-  return gra->E-1;
+  return 1;
 }
 
 unsigned RDL_addUEdge_g(RDL_graph *gra, unsigned from, unsigned to)
 {
-  unsigned edge_id, i;
-
-  if(from >= gra->V || to >= gra->V) {
-    RDL_outputFunc(RDL_ERROR, "Tried to add an edge with atoms not in range.\n");
-    RDL_outputFunc(RDL_ERROR,  "edge (%u,%u) can not be added to graph with %u atoms.\n",
-        from, to, gra->V);
+  unsigned i, *edge, **edges;
+  RDL_edge *adj;
+  if (!gra || from >= gra->V || to >= gra->V || from == to) {
+    RDL_outputFunc(RDL_ERROR, "Invalid edge endpoints.\n");
     return RDL_INVALID_RESULT;
   }
-
-  if (from == to) {
-    RDL_outputFunc(RDL_WARNING, "Adding a loop is not allowed, node %u\n", from);
-    return RDL_INVALID_RESULT;
-  }
-
-  for(i=0; i<gra->degree[from]; ++i) {
-    if(gra->adjList[from][i][0] == to) {
-      /*edge already exists*/
+  for (i = 0; i < gra->degree[from]; ++i) {
+    if (gra->adjList[from][i][0] == to) {
       return RDL_DUPLICATE_EDGE;
     }
   }
-  RDL_addEdge(gra, from, to);
-  RDL_addEdge(gra, to, from);
-  --gra->E; /*was incremented twice*/
-
-  edge_id = RDL_addToEdgeArray(gra, from, to);
-
-  gra->adjList[from][gra->degree[from]-1][1] = edge_id;
-  gra->adjList[to][gra->degree[to]-1][1] = edge_id;
-
-  return edge_id;
+  if (gra->E >= UINT_MAX - 3 || gra->degree[from] == UINT_MAX || gra->degree[to] == UINT_MAX) {
+    return RDL_INVALID_RESULT;
+  }
+  /* Reserve everything before changing counts or writing an edge. A failed
+   * reserve may grow storage, but leaves the logical graph unchanged. */
+  adj = RDL_resize(gra->adjList[from], (size_t)gra->degree[from] + 1, sizeof(*adj));
+  if (!adj) {
+    return RDL_INVALID_RESULT;
+  }
+  gra->adjList[from] = adj;
+  adj = RDL_resize(gra->adjList[to], (size_t)gra->degree[to] + 1, sizeof(*adj));
+  if (!adj) {
+    return RDL_INVALID_RESULT;
+  }
+  gra->adjList[to] = adj;
+  if (gra->E == gra->edgesAlloced) {
+    if (gra->edgesAlloced > UINT_MAX / 2) {
+      return RDL_INVALID_RESULT;
+    }
+    i = gra->edgesAlloced ? gra->edgesAlloced * 2 : 64;
+    edges = RDL_resize(gra->edges, i, sizeof(*edges));
+    if (!edges) {
+      return RDL_INVALID_RESULT;
+    }
+    gra->edges = edges;
+    gra->edgesAlloced = i;
+  }
+  edge = RDL_alloc(2, sizeof(*edge));
+  if (!edge) {
+    return RDL_INVALID_RESULT;
+  }
+  edge[0] = from < to ? from : to;
+  edge[1] = from < to ? to : from;
+  i = gra->E++;
+  gra->edges[i] = edge;
+  gra->adjList[from][gra->degree[from]][0] = to;
+  gra->adjList[from][gra->degree[from]++][1] = i;
+  gra->adjList[to][gra->degree[to]][0] = from;
+  gra->adjList[to][gra->degree[to]++][1] = i;
+  return i;
 }
 
 unsigned RDL_edgeId(const RDL_graph *gra, unsigned from, unsigned to)

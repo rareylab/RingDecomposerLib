@@ -26,16 +26,15 @@
 
 #include "RDLapsp.h"
 #include "RDLgraph.h"
+#include "RDLutility.h"
 
 /** returns 1 if the intersection of P(r,y) and P(r,z) is equal to {r};
 0 otherwise */
-static int RDL_pathsShareOnlyStart(unsigned r, unsigned y, unsigned z, RDL_graph *gra, RDL_sPathInfo *spi)
+static int RDL_pathsShareOnlyStart(unsigned r, unsigned y, unsigned z, RDL_graph *gra,
+    RDL_sPathInfo *spi, unsigned *vertInRY, unsigned *vertInRZ)
 {
   unsigned result = 0, i, pnt, count=0;
-  unsigned *vertInRY, *vertInRZ; /*edges in P(r,y) and P(r,z)*/
-  vertInRY = malloc(gra->V * sizeof(*vertInRY));
-  vertInRZ = malloc(gra->V * sizeof(*vertInRZ));
-
+  /* vertices in P(r,y) and P(r,z); clear reusable scratch buffers */
   for(i=0; i<gra->V; ++i)
   {
     vertInRY[i] = 0;
@@ -71,8 +70,6 @@ static int RDL_pathsShareOnlyStart(unsigned r, unsigned y, unsigned z, RDL_graph
     result = 1;
   }
 
-  free(vertInRY);
-  free(vertInRZ);
   return result;
 }
 
@@ -83,7 +80,10 @@ static char *RDL_findPrototype(unsigned r, unsigned y, unsigned z, unsigned x,
   unsigned i, vert1, vert2;
   char *proto;
 
-  proto = malloc(gra->E * sizeof(*proto));
+  proto = RDL_alloc(gra->E, sizeof(*proto));
+  if (!proto) {
+    return NULL;
+  }
   for(i=0; i<gra->E; ++i)
   {
     proto[i] = 0;
@@ -116,62 +116,53 @@ static char *RDL_findPrototype(unsigned r, unsigned y, unsigned z, unsigned x,
   return proto;
 }
 
-/** fills the rc datastructure with the odd cycle r-y-z-r */
-static void RDL_addOdd(unsigned r, unsigned y, unsigned z,
+/** Adds an odd family when x == UINT_MAX, otherwise an even family. */
+static int RDL_addFamily(unsigned r, unsigned y, unsigned z, unsigned x,
     RDL_graph *gra, RDL_sPathInfo *spi, RDL_cfURF *rc)
 {
-  RDL_cfam *new;
+  RDL_cfam *family, **fams;
   if (rc->alloced == rc->nofFams) {
+    if (rc->alloced > UINT_MAX / 2) {
+      return 0;
+    }
+    fams = RDL_resize(rc->fams, (size_t)rc->alloced * 2, sizeof(*fams));
+    if (!fams) {
+      return 0;
+    }
+    rc->fams = fams;
     rc->alloced *= 2;
-    rc->fams = realloc(rc->fams, rc->alloced * sizeof(*rc->fams));
   }
-  /* skip if we're out of memory... */
-  if (rc->fams) {
-    new = malloc(sizeof(*new));
-    new->r = r;
-    new->p = y;
-    new->q = z;
-    new->x = UINT_MAX; /*odd cycle*/
-    new->mark = 0;
-    new->prototype = RDL_findPrototype(r, y, z, UINT_MAX, gra, spi);
-    new->weight = spi->dist[r][y] + spi->dist[r][z] + 1;
-    rc->fams[rc->nofFams++] = new;
+  family = RDL_alloc(1, sizeof(*family));
+  if (!family) {
+    return 0;
   }
-}
-
-/** fills the rc datastructure with the even cycle r-y-x-z-r */
-static void RDL_addEven(unsigned r, unsigned y, unsigned x,
-    unsigned z, RDL_graph *gra, RDL_sPathInfo *spi, RDL_cfURF *rc)
-{
-  RDL_cfam *new;
-  if (rc->alloced == rc->nofFams) {
-    rc->alloced *= 2;
-    rc->fams = realloc(rc->fams, rc->alloced * sizeof(*rc->fams));
-  }
-  /* skip if we're out of memory... */
-  if (rc->fams) {
-    new = malloc(sizeof(**rc->fams));
-    new->r = r;
-    new->p = y;
-    new->q = z;
-    new->x = x; /*even cycle*/
-    new->mark = 0;
-    new->prototype = RDL_findPrototype(r, y, z, x, gra, spi);
-    new->weight = spi->dist[r][y] + spi->dist[r][z] + 2;
-    rc->fams[rc->nofFams++] = new;
-  }
+  family->prototype = RDL_findPrototype(r, y, z, x, gra, spi);
+  if (!family->prototype) { RDL_free(family); return 0; }
+  family->r = r; family->p = y; family->q = z; family->x = x;
+  family->weight = spi->dist[r][y] + spi->dist[r][z] + (x == UINT_MAX ? 1 : 2);
+  rc->fams[rc->nofFams++] = family;
+  return 1;
 }
 
 /** finds a number of cycle families that contain at least all RELEVANT cycle
 families - just like in Vismara's pseudocode */
-static void RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
+static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
 {
   unsigned i,j;
+  int shared;
   unsigned rv,yv,zv,pv,qv; /*variables as in Vismara's algorithm, extended by a 'v'*/
   unsigned *evenCand; /*'S' in Vismara's algorithm*/
+  unsigned *vertInRY = NULL, *vertInRZ = NULL;
   unsigned nofCandidates = 0;
-  evenCand = malloc(gra->V * sizeof(*evenCand));
-
+  evenCand = RDL_alloc(gra->V, sizeof(*evenCand));
+  vertInRY = RDL_alloc(gra->V, sizeof(*vertInRY));
+  vertInRZ = RDL_alloc(gra->V, sizeof(*vertInRZ));
+  if (!evenCand || !vertInRY || !vertInRZ) {
+    RDL_free(evenCand);
+    RDL_free(vertInRY);
+    RDL_free(vertInRZ);
+    return 0;
+  }
   for(rv = 0; rv < gra->V; ++rv) {
     for(yv = 0; yv < gra->V; ++yv) {
       /*all yv reachable from rv respecting the ordering*/
@@ -188,13 +179,19 @@ static void RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
             else if(spi->dist[rv][zv] != spi->dist[rv][yv] + 1
                 && (gra->degree[zv] < gra->degree[yv] ||
                     (gra->degree[zv] == gra->degree[yv] && zv<yv))
-                && RDL_pathsShareOnlyStart(rv, yv, zv, gra, spi) == 1) {
+                ) {
               /*add odd cycle rv-yv rv-zv zv-yv*/
-              RDL_addOdd(rv, yv, zv, gra, spi, rc);
+              shared = RDL_pathsShareOnlyStart(rv, yv, zv, gra, spi,
+                  vertInRY, vertInRZ);
+              if (shared && !RDL_addFamily(rv, yv, zv, UINT_MAX, gra, spi, rc)) {
+                goto fail;
+              }
             }
             /*to fill dPaths in sPathInfo with the edges to r*/
             if(spi->dist[rv][zv] == 1) {
-              RDL_addEdge(spi->dPaths[rv], zv, rv);
+              if (!RDL_addEdge(spi->dPaths[rv], zv, rv)) {
+                goto fail;
+              }
             }
           }
         }
@@ -203,22 +200,36 @@ static void RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
           pv = evenCand[i];
           for(j = i+1; j < nofCandidates; ++j) {
             qv = evenCand[j];
-            if((RDL_pathsShareOnlyStart(rv, pv, qv, gra, spi) == 1)) {
+            shared = RDL_pathsShareOnlyStart(rv, pv, qv, gra, spi,
+                vertInRY, vertInRZ);
+            if (shared) {
               /*add even cycle rv-pv rv-qv pv-yv-qv*/
-              RDL_addEven(rv, pv, yv, qv, gra, spi, rc);
+              if (!RDL_addFamily(rv, pv, qv, yv, gra, spi, rc)) {
+                goto fail;
+              }
             }
           }
         }
         /*to fill dPaths in sPathInfo/fill U_r (see Vismara)*/
         for(i = 0; i < nofCandidates; ++i) {
           pv = evenCand[i];
-          RDL_addEdge(spi->dPaths[rv], yv, pv);
+          if (!RDL_addEdge(spi->dPaths[rv], yv, pv)) {
+            goto fail;
+          }
         }
       }
     }
   }
 
-  free(evenCand);
+  RDL_free(evenCand);
+  RDL_free(vertInRY);
+  RDL_free(vertInRZ);
+  return 1;
+fail:
+  RDL_free(evenCand);
+  RDL_free(vertInRY);
+  RDL_free(vertInRZ);
+  return 0;
 }
 
 static int RDL_cycleFamsComp(const void *cf1, const void *cf2)
@@ -230,28 +241,24 @@ static int RDL_cycleFamsComp(const void *cf1, const void *cf2)
     else if((*((RDL_cfam **)cf1))->weight > (*((RDL_cfam **)cf2))->weight)
     {
         return 1;
+    } else {
+      return 0;
     }
-    else return 0;
 }
 
 RDL_cfURF *RDL_findCycleFams(RDL_graph *gra, RDL_sPathInfo *spi)
 {
-  RDL_cfURF *rc = malloc(sizeof(*rc));
-  /*number of CFs is at most 2m^2+vn (Vismara Lemma 3)*/
-
-  rc->alloced = 64;
-  rc->fams = malloc(rc->alloced * sizeof(*rc->fams));
-  rc->nofFams = 0;
-  RDL_vismara(rc, gra, spi);
-
-  if (!rc->fams) {
-    RDL_outputFunc(RDL_ERROR, "Graph is too large, can't allocate memory!\n");
-    free(rc);
+  RDL_cfURF *rc = RDL_alloc(1, sizeof(*rc));
+  if (!rc) {
     return NULL;
   }
-
-  rc->alloced = rc->nofFams;
-  rc->fams = realloc(rc->fams, rc->alloced * sizeof(*rc->fams));
+  rc->nofFams = 0;
+  rc->alloced = 64;
+  rc->fams = RDL_alloc(rc->alloced, sizeof(*rc->fams));
+  if (!rc->fams || !RDL_vismara(rc, gra, spi)) {
+    RDL_deleteCycleFams(rc);
+    return NULL;
+  }
 
   /* sort by size */
   qsort(rc->fams, rc->nofFams, sizeof(*rc->fams), RDL_cycleFamsComp);
@@ -261,12 +268,15 @@ RDL_cfURF *RDL_findCycleFams(RDL_graph *gra, RDL_sPathInfo *spi)
 void RDL_deleteCycleFams(RDL_cfURF *rc)
 {
   unsigned i;
+  if (!rc) {
+    return;
+  }
   for(i=0; i<rc->nofFams; ++i)
   {
-    free(rc->fams[i]->prototype);
-    free(rc->fams[i]);
+    RDL_free(rc->fams[i]->prototype);
+    RDL_free(rc->fams[i]);
   }
-  free(rc->fams);
-  free(rc);
+  RDL_free(rc->fams);
+  RDL_free(rc);
 }
 

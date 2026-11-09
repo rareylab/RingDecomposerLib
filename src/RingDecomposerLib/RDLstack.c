@@ -22,89 +22,63 @@
 
 #include <stdlib.h>
 
-static const unsigned MinSize = 32;
+#include "RDLutility.h"
+#include <limits.h>
 
 struct RDL_stack {
-    void** elements;
-    void** top;
-    unsigned size;
-    unsigned reserved;
+  void **elements;
+  unsigned size, reserved;
 };
 
-RDL_stack* RDL_stack_new(void)
+RDL_stack *RDL_stack_new(void)
 {
-  RDL_stack* stack;
-
-  stack = malloc(sizeof(*stack));
-  stack->size = 0;
-  stack->reserved = MinSize;
-  stack->elements = malloc(stack->reserved * sizeof(*stack->elements));
-  stack->top = stack->elements-1;
-
+  RDL_stack *stack = RDL_alloc(1, sizeof(*stack));
+  if (!stack) {
+    return NULL;
+  }
+  stack->reserved = 32;
+  stack->elements = RDL_alloc(stack->reserved, sizeof(*stack->elements));
+  if (!stack->elements) { RDL_free(stack); return NULL; }
   return stack;
 }
 
-void* RDL_stack_top(RDL_stack* stack)
+void *RDL_stack_top(RDL_stack *stack)
 {
-  if (stack->size > 0) {
-    return *stack->top;
-  }
-  else {
-    return NULL;
-  }
+  return stack->size ? stack->elements[stack->size - 1] : NULL;
 }
 
-int RDL_stack_empty(RDL_stack* stack)
+int RDL_stack_empty(RDL_stack *stack) { return stack->size == 0; }
+void RDL_stack_pop(RDL_stack *stack)
 {
-  return (stack->size == 0);
-}
-
-void RDL_stack_pop(RDL_stack* stack)
-{
-  unsigned distance;
-
-  if (stack->size > 0) {
+  if (stack->size) {
     --stack->size;
-    --stack->top;
-
-    if (stack->size * 2 < stack->reserved && stack->reserved > MinSize) {
-      distance = stack->top - stack->elements;
-
-      stack->reserved = stack->reserved / 2;
-
-      stack->elements = realloc(stack->elements,
-          stack->reserved * sizeof(*stack->elements));
-
-      stack->top = stack->elements + distance;
-    }
   }
 }
 
-void RDL_stack_push(RDL_stack* stack, void* element)
+int RDL_stack_push(RDL_stack *stack, void *element)
 {
-  unsigned distance;
-
+  void **elements;
   if (stack->size == stack->reserved) {
+    if (stack->reserved > UINT_MAX / 2) {
+      return 0;
+    }
+    elements = RDL_resize(stack->elements, (size_t)stack->reserved * 2,
+                          sizeof(*elements));
+    if (!elements) {
+      return 0;
+    }
+    stack->elements = elements;
     stack->reserved *= 2;
-
-    distance = stack->top - stack->elements;
-
-    stack->elements = realloc(stack->elements,
-        stack->reserved * sizeof(*stack->elements));
-
-    stack->top = stack->elements + distance;
   }
-  ++stack->top;
-  ++stack->size;
-  *stack->top = element;
+  stack->elements[stack->size++] = element;
+  return 1;
 }
 
-void RDL_stack_delete(RDL_stack* stack)
+void RDL_stack_delete(RDL_stack *stack)
 {
-  free(stack->elements);
-  stack->elements = NULL;
-  stack->top = NULL;
-  stack->reserved = 0;
-  stack->size = 0;
-  free(stack);
+  if (!stack) {
+    return;
+  }
+  RDL_free(stack->elements);
+  RDL_free(stack);
 }

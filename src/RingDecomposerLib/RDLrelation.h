@@ -28,7 +28,7 @@
 checks if the relation in fulfilled and stores the result in the URFinfo. In
 this step the non-relevant cycle families found before by Vismara's algorithm
 are ignored.*/
-void RDL_findRelations(RDL_cfURF *, RDL_graph *, RDL_URFinfo *, RDL_sPathInfo*);
+int RDL_findRelations(RDL_cfURF *, RDL_graph *, RDL_URFinfo *, RDL_sPathInfo*);
 
 #endif
 
