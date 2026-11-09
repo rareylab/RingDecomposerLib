@@ -27,11 +27,10 @@
 #include "RDLutility.h"
 
 /** allocates the matrices in urfInfo */
-RDL_URFinfo *RDL_initUrfInfo(RDL_cfURF *RCFs, RDL_graph *graph)
+RDL_URFinfo *RDL_initUrfInfo(RDL_cfURF *RCFs)
 {
   RDL_URFinfo *info = RDL_alloc(1, sizeof(*info));
   unsigned i, w = 0;
-  (void)graph;
   if (!info) {
     return NULL;
   }
@@ -251,7 +250,7 @@ fail:
 
 RDL_URFinfo *RDL_checkURFRelation(RDL_cfURF *RCFs, RDL_graph *graph, RDL_sPathInfo* spi)
 {
-  RDL_URFinfo *uInfo = RDL_initUrfInfo(RCFs, graph);
+  RDL_URFinfo *uInfo = RDL_initUrfInfo(RCFs);
   if (!uInfo) {
     return NULL;
   }
