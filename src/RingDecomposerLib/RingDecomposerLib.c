@@ -1161,6 +1161,7 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
   char* prototype;
   const RDL_graph* curr_graph;
   unsigned total_counter = 0, alloced;
+  unsigned success = 0;
   unsigned edge;
   unsigned char *currentCycle;
   unsigned char **basisCycles = NULL;
@@ -1351,8 +1352,7 @@ unsigned RDL_getSSSR(const RDL_data *data, RDL_cycle ***ptr)
 
 
 
-  (*ptr) = result;
-  return total_counter;
+  success = 1;
 fail:
   if (basisCycles) {
     for (k = 0; k < currentBasisCyclesSize; ++k) {
@@ -1366,9 +1366,13 @@ fail:
     }
   }
   free(prototypesForGaussian); free((void*)empty_cycle);
-  RDL_deleteCycles(result, total_counter);
-  *ptr = NULL;
-  return RDL_INVALID_RESULT;
+  if (!success) {
+    RDL_deleteCycles(result, total_counter);
+    *ptr = NULL;
+    return RDL_INVALID_RESULT;
+  }
+  *ptr = result;
+  return total_counter;
 }
 
 /* public, get the RCPs */

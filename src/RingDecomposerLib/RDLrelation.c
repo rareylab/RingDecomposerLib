@@ -383,6 +383,7 @@ that they have in common which proves that they are URF-related. */
 int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sPathInfo* spi)
 {
   unsigned i=0,j,k,shared, list_idx1, list_idx2;
+  int success = 0;
   char *edges; /*arrays of {0,1}^m that can store a set of edges with entries
   being 1 if the edge is contained and 0 otherwise*/
   char *visited = NULL;
@@ -471,7 +472,9 @@ int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sP
 
   free(edges);
   free(visited);
-  return 1;
+  edges = NULL;
+  visited = NULL;
+  success = 1;
 fail:
   if (edge_list) {
     for (j = 0; j < uInfo->nofProtos[i]; ++j) {
@@ -479,7 +482,7 @@ fail:
     }
   }
   free(edge_list); free(edge_list_size); free(edges); free(visited);
-  return 0;
+  return success;
 }
 
 /** Takes the matrices in "URFrel" which contain the URF-pair-relation and finds
@@ -487,7 +490,8 @@ the transitive closure - the URF-relation. */
 int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
 {
   unsigned i=0,j,k,l;
-  RDL_stack* dfs_stack;
+  RDL_stack* dfs_stack = NULL;
+  int success = 0;
   char* visited;
   unsigned cc_id;
   unsigned **cc = NULL;
@@ -499,7 +503,7 @@ int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
 
   dfs_stack = RDL_stack_new();
   if (!dfs_stack) {
-    return 0;
+    goto fail;
   }
 
   for(i = 0; i < uInfo->nofWeights; ++i) {
@@ -586,8 +590,7 @@ int RDL_findTransitiveClosure(RDL_URFinfo *uInfo)
     free(elements); elements = NULL;
   }
 
-  RDL_stack_delete(dfs_stack);
-  return 1;
+  success = 1;
 fail:
   if (cc) {
     for (j = 0; j < uInfo->nofProtos[i]; ++j) {
@@ -596,7 +599,7 @@ fail:
   }
   free(cc); free(cc_size); free(visited); free(elements);
   RDL_stack_delete(dfs_stack);
-  return 0;
+  return success;
 }
 
 int RDL_findRelations(RDL_cfURF *RCFs, RDL_graph *graph,

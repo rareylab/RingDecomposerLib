@@ -188,6 +188,7 @@ static unsigned RDL_tarjan(const RDL_graph* graph,
                     unsigned** bcc)
 {
   unsigned *d = NULL, *low = NULL, u, time, curr_bcc, i;
+  unsigned result = RDL_INVALID_RESULT;
   RDL_stack* edge_stack = NULL;
 
   *bcc = NULL;
@@ -203,10 +204,6 @@ static unsigned RDL_tarjan(const RDL_graph* graph,
   if (!*bcc) {
     goto fail;
   }
-  for (i = 0; i < graph->E; ++i) {
-    (*bcc)[i] = 0;
-  }
-
   edge_stack = RDL_stack_new();
   if (!edge_stack) {
     goto fail;
@@ -216,11 +213,6 @@ static unsigned RDL_tarjan(const RDL_graph* graph,
   curr_bcc = 1;
 
   for (u = 0; u < graph->V; ++u) {
-    d[u] = 0;
-    low[u] = 0;
-  }
-
-  for (u = 0; u < graph->V; ++u) {
     if (d[u] == 0) {
       if (!RDL_tarjanVisit(graph, u, d, low, &time, &curr_bcc, *bcc, edge_stack)) {
         goto fail;
@@ -228,16 +220,16 @@ static unsigned RDL_tarjan(const RDL_graph* graph,
     }
   }
 
+  result = curr_bcc - 1;
+fail:
   free(d);
   free(low);
-
   RDL_stack_delete(edge_stack);
-
-  return (curr_bcc-1);
-fail:
-  free(d); free(low); free(*bcc); *bcc = NULL;
-  RDL_stack_delete(edge_stack);
-  return RDL_INVALID_RESULT;
+  if (result == RDL_INVALID_RESULT) {
+    free(*bcc);
+    *bcc = NULL;
+  }
+  return result;
 }
 
 /* perform Tarjan's algorithm and save mapping */
