@@ -310,22 +310,16 @@ unsigned RDL_getWeightForRCF(const RDL_data *data, unsigned index)
  * return the nodes for INTERNAL indices,
  * urf_internal_index relative to bcc_index and rcf_internal_index relative to URF
  */
-static int RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
-    unsigned urf_internal_index, unsigned rcf_internal_index, char* atoms)
+static void RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
+    unsigned urf_internal_index, unsigned rcf_internal_index, char* atoms,
+    char *visited)
 {
   const RDL_cfam **URF;
-  char *visited;
   const RDL_graph* graph;
 
   graph = data->bccGraphs->bcc_graphs[bcc_index];
 
   URF = (const RDL_cfam **)data->urfInfoPerBCC[bcc_index]->URFs[urf_internal_index];
-
-  visited = RDL_alloc(graph->V, sizeof(*visited));
-
-  if (!visited) {
-    goto fail;
-  }
 
   /* BFS on both shortest path graphs */
   RDL_giveVertices(URF[rcf_internal_index]->r, URF[rcf_internal_index]->q,
@@ -338,10 +332,6 @@ static int RDL_getNodes_internal(const RDL_data *data, unsigned bcc_index,
   if(URF[rcf_internal_index]->x < UINT_MAX) /*even cycle*/ {
     atoms[URF[rcf_internal_index]->x] = 1;
   }
-  free(visited);
-  return 1;
-fail:
-  return 0;
 }
 
 
@@ -352,7 +342,7 @@ fail:
 static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index)
 {
   unsigned i, nofFams, count, bcc_index, internal_index;
-  char *atoms = NULL;
+  char *atoms = NULL, *visited = NULL;
   RDL_node *result;
   const RDL_graph* graph;
 
@@ -360,24 +350,25 @@ static RDL_node *RDL_getNodesURF(const RDL_data *data, unsigned index)
   internal_index = data->urf_to_bcc[index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
   atoms = RDL_alloc(graph->V, sizeof(*atoms));
-  if (!atoms) {
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!atoms || !visited) {
     goto fail;
   }
 
   nofFams = data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[internal_index];
   /* iterate over all RCFs in this URFs and collect data in one bitset (atoms) */
   for(i=0; i<nofFams; ++i) {
-    if (!RDL_getNodes_internal(data, bcc_index, internal_index, i, atoms)) {
-      goto fail;
-    }
+    RDL_getNodes_internal(data, bcc_index, internal_index, i, atoms, visited);
   }
 
   result = RDL_bitset_to_array(atoms, graph->V,
       data->bccGraphs->node_from_bcc_mapping[bcc_index], &count);
   free(atoms);
+  free(visited);
   return result;
 fail:
   free(atoms);
+  free(visited);
   return NULL;
 }
 
@@ -389,7 +380,7 @@ static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
 {
   unsigned count, bcc_index,
       urf_internal_index, rcf_internal_index, urf_index;
-  char *atoms = NULL;
+  char *atoms = NULL, *visited = NULL;
   RDL_node *result;
   const RDL_graph* graph;
 
@@ -399,21 +390,23 @@ static RDL_node *RDL_getNodesRCF(const RDL_data *data, unsigned index)
   urf_internal_index = data->urf_to_bcc[urf_index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
   atoms = RDL_alloc(graph->V, sizeof(*atoms));
-  if (!atoms) {
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!atoms || !visited) {
     goto fail;
   }
 
   /* save the nodes into bitset */
-  if (!RDL_getNodes_internal(data, bcc_index, urf_internal_index, rcf_internal_index, atoms)) {
-    goto fail;
-  }
+  RDL_getNodes_internal(data, bcc_index, urf_internal_index, rcf_internal_index,
+      atoms, visited);
 
   result = RDL_bitset_to_array(atoms, graph->V,
       data->bccGraphs->node_from_bcc_mapping[bcc_index], &count);
   free(atoms);
+  free(visited);
   return result;
 fail:
   free(atoms);
+  free(visited);
   return NULL;
 }
 
@@ -551,12 +544,11 @@ double RDL_getNofRCForURF(const RDL_data *data, unsigned index)
  * return the edges for INTERNAL indices,
  * urf_internal_index relative to bcc_index and rcf_internal_index relative to URF
  */
-static int RDL_getEdges_internal(const RDL_data *data,
+static void RDL_getEdges_internal(const RDL_data *data,
     unsigned bcc_index, unsigned urf_internal_index,
-    unsigned rcf_internal_index, char* edges)
+    unsigned rcf_internal_index, char* edges, char *visited)
 {
   const RDL_cfam **URF;
-  char *visited;
   const RDL_graph* graph;
 
   graph = data->bccGraphs->bcc_graphs[bcc_index];
@@ -564,11 +556,6 @@ static int RDL_getEdges_internal(const RDL_data *data,
   URF = (const RDL_cfam **)data->urfInfoPerBCC[bcc_index]->URFs[urf_internal_index];
 
   /* perform BFS on both paths and collect edges */
-  visited = RDL_alloc(graph->V, sizeof(*visited));
-  if (!visited) {
-    goto fail;
-  }
-
   RDL_giveEdges(URF[rcf_internal_index]->r, URF[rcf_internal_index]->q,
       edges, graph, data->spiPerBCC[bcc_index], visited);
 
@@ -587,10 +574,6 @@ static int RDL_getEdges_internal(const RDL_data *data,
   else /*odd cycle*/ {
     edges[RDL_edgeId(graph,URF[rcf_internal_index]->q,URF[rcf_internal_index]->p)] = 1;
   }
-  free(visited);
-  return 1;
-fail:
-  return 0;
 }
 
 
@@ -601,7 +584,7 @@ fail:
 static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
 {
   unsigned i, nofFams, count, bcc_index, internal_index;
-  char *edges = NULL;
+  char *edges = NULL, *visited = NULL;
   unsigned *result;
   const RDL_graph* graph;
 
@@ -610,24 +593,25 @@ static unsigned *RDL_getEdgesURF(const RDL_data *data, unsigned index)
   internal_index = data->urf_to_bcc[index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
   edges = RDL_alloc(graph->E, sizeof(*edges));
-  if (!edges) {
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!edges || !visited) {
     goto fail;
   }
 
   nofFams = data->urfInfoPerBCC[bcc_index]->nofCFsPerURF[internal_index];
   /* iterate over all RCFs in this URF and collect results in bitset (edges) */
   for(i=0; i<nofFams; ++i) {
-    if (!RDL_getEdges_internal(data, bcc_index, internal_index, i, edges)) {
-      goto fail;
-    }
+    RDL_getEdges_internal(data, bcc_index, internal_index, i, edges, visited);
   }
 
   result = RDL_bitset_to_array(edges, graph->E,
       data->bccGraphs->edge_from_bcc_mapping[bcc_index], &count);
   free(edges);
+  free(visited);
   return result;
 fail:
   free(edges);
+  free(visited);
   return NULL;
 }
 
@@ -639,7 +623,7 @@ static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
 {
   unsigned count, urf_index, bcc_index,
       urf_internal_index, rcf_internal_index;
-  char *edges = NULL;
+  char *edges = NULL, *visited = NULL;
   unsigned *result;
   const RDL_graph* graph;
 
@@ -650,20 +634,22 @@ static unsigned *RDL_getEdgesRCF(const RDL_data *data, unsigned index)
   urf_internal_index = data->urf_to_bcc[urf_index][1];
   graph = data->bccGraphs->bcc_graphs[bcc_index];
   edges = RDL_alloc(graph->E, sizeof(*edges));
-  if (!edges) {
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!edges || !visited) {
     goto fail;
   }
 
-  if (!RDL_getEdges_internal(data, bcc_index, urf_internal_index, rcf_internal_index, edges)) {
-    goto fail;
-  }
+  RDL_getEdges_internal(data, bcc_index, urf_internal_index,
+      rcf_internal_index, edges, visited);
 
   result = RDL_bitset_to_array(edges, graph->E,
       data->bccGraphs->edge_from_bcc_mapping[bcc_index], &count);
   free(edges);
+  free(visited);
   return result;
 fail:
   free(edges);
+  free(visited);
   return NULL;
 }
 

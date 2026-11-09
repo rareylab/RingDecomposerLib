@@ -292,13 +292,10 @@ fail:
 }
 
 /** finds all edges in the RCF and stores the result in the array edges.*/
-int RDL_findEdges(char *edges, RDL_cfam *RCF, RDL_graph *gra, RDL_sPathInfo *spi)
+static void RDL_findEdges(char *edges, char *visited, RDL_cfam *RCF,
+    RDL_graph *gra, RDL_sPathInfo *spi)
 {
-  char* visited;
-  visited = RDL_alloc(gra->V, sizeof(*visited));
-  if (!visited) {
-    goto fail;
-  }
+  memset(visited, 0, gra->V * sizeof(*visited));
   RDL_giveEdges(RCF->r, RCF->p, edges, gra, spi, visited);
   memset(visited, 0, gra->V * sizeof(*visited));
   RDL_giveEdges(RCF->r, RCF->q, edges, gra, spi, visited);
@@ -312,10 +309,6 @@ int RDL_findEdges(char *edges, RDL_cfam *RCF, RDL_graph *gra, RDL_sPathInfo *spi
   {
     edges[RDL_edgeId(gra, RCF->p, RCF->q)] = 1;
   }
-  free(visited);
-  return 1;
-fail:
-  return 0;
 }
 
 /** Checks if the RCFs with indices idx1 and idx2 share at least one edge.
@@ -326,6 +319,7 @@ int RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *gra
   char *edges1 = NULL;
   char *edges2 = NULL; /*arrays of {0,1}^m that can store a set of edges with entries
   being 1 if the edge is contained and 0 otherwise*/
+  char *visited = NULL;
   unsigned i;
   char result = 0;
   edges1 = RDL_alloc(graph->E, sizeof(*edges1));
@@ -336,13 +330,13 @@ int RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *gra
   if (!edges2) {
     goto fail;
   }
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!visited) {
+    goto fail;
+  }
 
-  if (!RDL_findEdges(edges1, RCFs->fams[idx1], graph, spi)) {
-    goto fail;
-  }
-  if (!RDL_findEdges(edges2, RCFs->fams[idx2], graph, spi)) {
-    goto fail;
-  }
+  RDL_findEdges(edges1, visited, RCFs->fams[idx1], graph, spi);
+  RDL_findEdges(edges2, visited, RCFs->fams[idx2], graph, spi);
 
   for(i=0; i<graph->E; ++i)
   {
@@ -354,20 +348,20 @@ int RDL_shareEdges(RDL_cfURF *RCFs, unsigned idx1, unsigned idx2, RDL_graph *gra
   }
   free(edges1);
   free(edges2);
+  free(visited);
   return result;
 fail:
-  free(edges1); free(edges2);
+  free(edges1); free(edges2); free(visited);
   return -1;
 }
 
 static int make_edge_list(unsigned **edge_list, unsigned *edge_list_size,
-    char *edges, RDL_graph *graph, RDL_cfam *rcf, RDL_sPathInfo *spi)
+    char *edges, char *visited, RDL_graph *graph, RDL_cfam *rcf,
+    RDL_sPathInfo *spi)
 {
   unsigned i, count = 0;
   memset(edges, 0, graph->E * sizeof(*edges));
-  if (!RDL_findEdges(edges, rcf, graph, spi)) {
-    return 0;
-  }
+  RDL_findEdges(edges, visited, rcf, graph, spi);
   for (i = 0; i < graph->E; ++i) {
     count += edges[i] != 0;
   }
@@ -391,13 +385,14 @@ int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sP
   unsigned i=0,j,k,shared, list_idx1, list_idx2;
   char *edges; /*arrays of {0,1}^m that can store a set of edges with entries
   being 1 if the edge is contained and 0 otherwise*/
+  char *visited = NULL;
 
   unsigned **edge_list = NULL;
   unsigned *edge_list_size = NULL;
 
   edges = RDL_alloc(graph->E, sizeof(*edges));
-
-  if (!edges) {
+  visited = RDL_alloc(graph->V, sizeof(*visited));
+  if (!edges || !visited) {
     goto fail;
   }
 
@@ -424,13 +419,15 @@ int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sP
         {
           /* calculate the edge lists only if necessary */
           if (edge_list[j] == NULL) {
-            if (!make_edge_list(&edge_list[j], &edge_list_size[j], edges, graph,
+            if (!make_edge_list(&edge_list[j], &edge_list_size[j], edges,
+                                visited, graph,
                                 RCFs->fams[RDL_idxWeights(uInfo, i, j)], spi)) {
               goto fail;
             }
           }
           if (edge_list[k] == NULL) {
-            if (!make_edge_list(&edge_list[k], &edge_list_size[k], edges, graph,
+            if (!make_edge_list(&edge_list[k], &edge_list_size[k], edges,
+                                visited, graph,
                                 RCFs->fams[RDL_idxWeights(uInfo, i, k)], spi)) {
               goto fail;
             }
@@ -473,6 +470,7 @@ int RDL_checkEdges(RDL_cfURF *RCFs, RDL_graph *graph, RDL_URFinfo *uInfo, RDL_sP
   }
 
   free(edges);
+  free(visited);
   return 1;
 fail:
   if (edge_list) {
@@ -480,7 +478,7 @@ fail:
       free(edge_list[j]);
     }
   }
-  free(edge_list); free(edge_list_size); free(edges);
+  free(edge_list); free(edge_list_size); free(edges); free(visited);
   return 0;
 }
 

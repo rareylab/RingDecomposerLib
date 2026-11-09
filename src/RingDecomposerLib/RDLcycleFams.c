@@ -30,14 +30,11 @@
 
 /** returns 1 if the intersection of P(r,y) and P(r,z) is equal to {r};
 0 otherwise */
-static int RDL_pathsShareOnlyStart(unsigned r, unsigned y, unsigned z, RDL_graph *gra, RDL_sPathInfo *spi)
+static int RDL_pathsShareOnlyStart(unsigned r, unsigned y, unsigned z, RDL_graph *gra,
+    RDL_sPathInfo *spi, unsigned *vertInRY, unsigned *vertInRZ)
 {
   unsigned result = 0, i, pnt, count=0;
-  unsigned *vertInRY, *vertInRZ; /*edges in P(r,y) and P(r,z)*/
-  vertInRY = RDL_alloc(gra->V, sizeof(*vertInRY));
-  vertInRZ = RDL_alloc(gra->V, sizeof(*vertInRZ));
-
-  if (!vertInRY || !vertInRZ) { free(vertInRY); free(vertInRZ); return -1; }
+  /* vertices in P(r,y) and P(r,z); clear reusable scratch buffers */
   for(i=0; i<gra->V; ++i)
   {
     vertInRY[i] = 0;
@@ -73,8 +70,6 @@ static int RDL_pathsShareOnlyStart(unsigned r, unsigned y, unsigned z, RDL_graph
     result = 1;
   }
 
-  free(vertInRY);
-  free(vertInRZ);
   return result;
 }
 
@@ -157,10 +152,15 @@ static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
   int shared;
   unsigned rv,yv,zv,pv,qv; /*variables as in Vismara's algorithm, extended by a 'v'*/
   unsigned *evenCand; /*'S' in Vismara's algorithm*/
+  unsigned *vertInRY = NULL, *vertInRZ = NULL;
   unsigned nofCandidates = 0;
   evenCand = RDL_alloc(gra->V, sizeof(*evenCand));
-
-  if (!evenCand) {
+  vertInRY = RDL_alloc(gra->V, sizeof(*vertInRY));
+  vertInRZ = RDL_alloc(gra->V, sizeof(*vertInRZ));
+  if (!evenCand || !vertInRY || !vertInRZ) {
+    free(evenCand);
+    free(vertInRY);
+    free(vertInRZ);
     return 0;
   }
   for(rv = 0; rv < gra->V; ++rv) {
@@ -181,10 +181,8 @@ static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
                     (gra->degree[zv] == gra->degree[yv] && zv<yv))
                 ) {
               /*add odd cycle rv-yv rv-zv zv-yv*/
-              shared = RDL_pathsShareOnlyStart(rv, yv, zv, gra, spi);
-              if (shared < 0) {
-                goto fail;
-              }
+              shared = RDL_pathsShareOnlyStart(rv, yv, zv, gra, spi,
+                  vertInRY, vertInRZ);
               if (shared && !RDL_addFamily(rv, yv, zv, UINT_MAX, gra, spi, rc)) {
                 goto fail;
               }
@@ -202,10 +200,8 @@ static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
           pv = evenCand[i];
           for(j = i+1; j < nofCandidates; ++j) {
             qv = evenCand[j];
-            shared = RDL_pathsShareOnlyStart(rv, pv, qv, gra, spi);
-            if (shared < 0) {
-              goto fail;
-            }
+            shared = RDL_pathsShareOnlyStart(rv, pv, qv, gra, spi,
+                vertInRY, vertInRZ);
             if (shared) {
               /*add even cycle rv-pv rv-qv pv-yv-qv*/
               if (!RDL_addFamily(rv, pv, qv, yv, gra, spi, rc)) {
@@ -226,9 +222,13 @@ static int RDL_vismara(RDL_cfURF *rc, RDL_graph *gra, RDL_sPathInfo *spi)
   }
 
   free(evenCand);
+  free(vertInRY);
+  free(vertInRZ);
   return 1;
 fail:
   free(evenCand);
+  free(vertInRY);
+  free(vertInRZ);
   return 0;
 }
 
