@@ -4,14 +4,14 @@
  * Copyright (c) 2016
  * University of Hamburg, ZBH - Center for Bioinformatics
  * Niek Andresen, Florian Flachsenberg, Matthias Rarey
- * 
+ *
  * Please cite:
- * 
+ *
  * Kolodzik, A.; Urbaczek, S.; Rarey, M.
  * Unique Ring Families: A Chemically Meaningful Description
  * of Molecular Ring Topologies.
  * J. Chem. Inf. Model., 2012, 52 (8), pp 2013-2021
- * 
+ *
  * Flachsenberg, F.; Andresen, N.; Rarey, M.
  * RingDecomposerLib: An Open-Source Implementation of
  * Unique Ring Families and Other Cycle Bases.
@@ -1699,7 +1699,9 @@ unsigned RDL_getEdgeArray(const RDL_data *data, RDL_edge **ptr)
     result[idx][1] = data->graph->edges[idx][1];
   }
   (*ptr) = result;
-  return data->graph->E;fail:
+  return data->graph->E;
+
+fail:
   *ptr = NULL;
   return RDL_INVALID_RESULT;
 }
@@ -1788,7 +1790,9 @@ unsigned RDL_getEdgesForRingsystem(
     (*edges)[i][1] = data->graph->edges[edge][1];
   }
 
-  return data->bccGraphs->bcc_graphs[idx]->E;fail:
+  return data->bccGraphs->bcc_graphs[idx]->E;
+
+fail:
   *edges = NULL;
   return RDL_INVALID_RESULT;
 }
@@ -1822,7 +1826,9 @@ unsigned RDL_getNodesForRingsystem(
     (*nodes)[i] = node;
   }
 
-  return data->bccGraphs->bcc_graphs[idx]->V;fail:
+  return data->bccGraphs->bcc_graphs[idx]->V;
+
+fail:
   *nodes = NULL;
   return RDL_INVALID_RESULT;
 }
